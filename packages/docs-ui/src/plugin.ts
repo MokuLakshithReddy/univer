@@ -15,7 +15,6 @@
  */
 
 import type { Dependency, DocumentDataModel } from '@univerjs/core';
-import type { IUniverDocsUIConfig } from './config/config';
 import {
     DependentOn,
     ICommandService,
@@ -37,6 +36,7 @@ import {
 } from '@univerjs/docs';
 import { IRenderManagerService, UniverRenderEnginePlugin } from '@univerjs/engine-render';
 import { IShortcutService } from '@univerjs/ui';
+import type { IUniverDocsUIConfig } from './config/config';
 import pkg from '../package.json';
 import { AfterSpaceCommand, EnterCommand, TabCommand } from './commands/commands/auto-format.command';
 import { BreakLineCommand } from './commands/commands/break-line.command';
@@ -153,6 +153,7 @@ import { SetDocZoomRatioOperation } from './commands/operations/set-doc-zoom-rat
 import { defaultPluginConfig, DOCS_UI_PLUGIN_CONFIG_KEY, DOCS_UI_PLUGIN_NAME } from './config/config';
 import { ComponentsController } from './controllers/components.controller';
 import { DocAutoFormatController } from './controllers/doc-auto-format.controller';
+import { DocHeaderFooterRibbonController } from './controllers/doc-header-footer-ribbon.controller';
 import { DocHeaderFooterController } from './controllers/doc-header-footer.controller';
 import { DocMoveCursorController } from './controllers/doc-move-cursor.controller';
 import { DocParagraphSettingController } from './controllers/doc-paragraph-setting.controller';
@@ -167,6 +168,7 @@ import { DocChecklistRenderController } from './controllers/render-controllers/d
 import { DocClipboardController } from './controllers/render-controllers/doc-clipboard.controller';
 import { DocContextMenuRenderController } from './controllers/render-controllers/doc-contextmenu.render-controller';
 import { DocEditorBridgeController } from './controllers/render-controllers/doc-editor-bridge.controller';
+import { DocFieldRenderController } from './controllers/render-controllers/doc-field.render-controller';
 import { DocIMEInputController } from './controllers/render-controllers/doc-ime-input.controller';
 import { DocInputController } from './controllers/render-controllers/doc-input.controller';
 import {
@@ -194,6 +196,7 @@ import { DocHtmlExportService } from './services/clipboard/udm-to-html/doc-html-
 import { DocAutoFormatService } from './services/doc-auto-format.service';
 import { DocContextualRibbonService } from './services/doc-contextual-ribbon.service';
 import { DocEventManagerService } from './services/doc-event-manager.service';
+import { DocHeadingCollapseService } from './services/doc-heading-collapse.service';
 import { DocIMEInputManagerService } from './services/doc-ime-input-manager.service';
 import { DocIMEStateChangeInterceptorService } from './services/doc-ime-state-change-interceptor.service';
 import { DocLayoutInteractionService } from './services/doc-layout-interaction.service';
@@ -213,7 +216,11 @@ import {
     BreakLineShortcut,
     CloseHeaderFooterShortcut,
     DeleteLeftShortcut,
+    DeleteLineEndShortcut,
+    DeleteLineStartShortcut,
     DeleteRightShortcut,
+    DeleteWordLeftShortcut,
+    DeleteWordRightShortcut,
     SoftBreakLineShortcut,
 } from './shortcuts/core-editing.shortcut';
 import {
@@ -311,7 +318,6 @@ export class UniverDocsUIPlugin extends Plugin {
         ]);
     }
 
-    // eslint-disable-next-line max-lines-per-function
     private _initCommand() {
         [
             DeleteLeftCommand,
@@ -441,6 +447,10 @@ export class UniverDocsUIPlugin extends Plugin {
             MoveSelectionWordRightShortcut,
             SelectAllShortcut,
             DeleteLeftShortcut,
+            DeleteWordLeftShortcut,
+            DeleteWordRightShortcut,
+            DeleteLineStartShortcut,
+            DeleteLineEndShortcut,
             DeleteRightShortcut,
             CloseHeaderFooterShortcut,
             BreakLineShortcut,
@@ -528,10 +538,13 @@ export class UniverDocsUIPlugin extends Plugin {
     private _initRenderModules() {
         ([
             [DocEventManagerService],
+            [DocFieldRenderController],
             [DocFloatMenuService],
             [DocPasteOptionsRenderController],
             [DocParagraphMenuService],
+            [DocHeadingCollapseService],
             [DocHeaderFooterController],
+            [DocHeaderFooterRibbonController],
             [DocResizeRenderController],
             [DocParagraphPlaceholderRenderController],
             [DocContextMenuRenderController],

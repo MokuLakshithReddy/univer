@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Dán đặc biệt',
             title: 'Tùy chọn dán',
             source: 'Giữ định dạng nguồn',
             destination: 'Khớp định dạng đích',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Đang khôi phục bố cục tài liệu…',
         },
         toolbar: {
+            zoom: 'Thu phóng',
+            fullscreen: 'Toàn màn hình',
             font: 'Phông chữ',
             fontSize: 'Cỡ chữ',
             bold: 'In đậm',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Xóa bảng',
         },
         headerFooter: {
+            navigation: 'Điều hướng',
+            options: 'Tùy chọn',
+            position: 'Vị trí',
+            refreshFields: 'Cập nhật trường',
+            pageNumber: 'Số trang',
+            currentPage: 'Trang hiện tại',
+            totalPages: 'Tổng số trang',
+            dateTime: 'Ngày và giờ',
+            updateAutomatically: 'Tự động cập nhật',
+            insertFailed: 'Tài liệu đã thay đổi hoặc không thể chỉnh sửa. Đóng hộp thoại và thử lại.',
+            goToHeader: 'Đi đến đầu trang',
+            goToFooter: 'Đi đến chân trang',
+
             linkToPrevious: 'Liên kết với phần trước',
             header: 'Đầu trang',
             footer: 'Chân trang',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Giảm thụt lề',
             defaultTextColor: 'Màu văn bản mặc định',
             noBackground: 'Không có nền',
+        },
+        heading: {
+            collapse: 'Thu gọn',
+            expand: 'Mở rộng',
         },
         'page-settings': {
             'document-setting': 'Cài đặt tài liệu',

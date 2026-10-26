@@ -31,27 +31,26 @@ import type {
     IDocumentLayoutSessionStartOptions,
     IDocumentLayoutStepResult,
 } from '@univerjs/engine-render';
-import type { IRichTextEditingMutationParams } from '../commands/mutations/core-editing.mutation';
 import {
     Disposable,
-
     DocumentFlavor,
     ICommandService,
-
     ILogService,
     Inject,
     isInternalEditorID,
     IUniverInstanceService,
     JSONX,
-
     LocaleService,
-
+    MODERN_DOCUMENT_DEFAULT_MARGIN,
+    MODERN_DOCUMENT_WIDTH,
+    ModernDocumentWidthMode,
     requestImmediateMacroTask,
     toDisposable,
     UniverInstanceType,
 } from '@univerjs/core';
 import { getDocsCustomBlockRenderViewport } from '@univerjs/engine-render';
 import { BehaviorSubject } from 'rxjs';
+import type { IRichTextEditingMutationParams } from '../commands/mutations/core-editing.mutation';
 import { RICH_TEXT_EDITING_MUTATION_ID } from '../commands/mutations/core-editing.mutation-id';
 import { createDocumentLayoutSnapshot } from './document-layout-snapshot';
 
@@ -328,9 +327,19 @@ function isRichTextEditingMutationParams(value: unknown): value is IRichTextEdit
         'actions' in value;
 }
 
-function collectCustomBlockViewports(dataModel: DocumentDataModel): Record<string, IDocsCustomBlockRenderViewport> {
+function collectCustomBlockViewports(
+    dataModel: DocumentDataModel,
+    options: IDocLayoutStartOptions
+): Record<string, IDocsCustomBlockRenderViewport> {
     const snapshot = dataModel.getSnapshot();
     const documentStyle = snapshot.documentStyle;
+    const isModern = documentStyle.documentFlavor === DocumentFlavor.MODERN;
+    const modernMargin = options.modernHorizontalMargin ?? MODERN_DOCUMENT_DEFAULT_MARGIN;
+    const pageMarginLeft = isModern ? modernMargin : documentStyle.marginLeft;
+    const pageMarginRight = isModern ? modernMargin : documentStyle.marginRight;
+    const pageWidth = isModern
+        ? options.modernPageWidth ?? documentStyle.pageSize?.width ?? MODERN_DOCUMENT_WIDTH[ModernDocumentWidthMode.MEDIUM]
+        : documentStyle.pageSize?.width;
     const viewports: Record<string, IDocsCustomBlockRenderViewport> = {};
 
     const bodies = [
@@ -347,9 +356,9 @@ function collectCustomBlockViewports(dataModel: DocumentDataModel): Record<strin
         const viewport = getDocsCustomBlockRenderViewport(dataModel.getUnitId(), customBlock.blockId, {
             fallbackHeight: drawing.docTransform.size.height ?? 0,
             fallbackWidth: drawing.docTransform.size.width ?? 0,
-            pageMarginLeft: documentStyle.marginLeft,
-            pageMarginRight: documentStyle.marginRight,
-            pageWidth: documentStyle.pageSize?.width,
+            pageMarginLeft,
+            pageMarginRight,
+            pageWidth,
         });
         if (viewport != null) {
             viewports[customBlock.blockId] = { ...viewport };
@@ -683,6 +692,9 @@ export class DocLayoutExecutorService extends Disposable {
         if (executor == null || dataModel == null) {
             return;
         }
+        if (JSONX.isNoop(params.actions) || params.actions?.length === 0) {
+            return;
+        }
 
         const session = this._sessions.get(params.unitId);
         if (session == null) {
@@ -692,9 +704,6 @@ export class DocLayoutExecutorService extends Disposable {
             return;
         }
 
-        if (JSONX.isNoop(params.actions)) {
-            return;
-        }
         const sourceMutationRevision = dataModel.getMutationRevision();
         if (sourceMutationRevision !== session.sourceMutationRevision + 1) {
             session.needsResnapshot = true;
@@ -753,7 +762,8 @@ export class DocLayoutExecutorService extends Disposable {
             const projections = this._createLayoutProjectionPayload(
                 session,
                 identity,
-                this._getRequiredModel(unitId)
+                this._getRequiredModel(unitId),
+                options
             );
             const request: IDocLayoutStartRequest = {
                 ...identity,
@@ -795,9 +805,10 @@ export class DocLayoutExecutorService extends Disposable {
     private _createLayoutProjectionPayload(
         session: IDocLayoutManagedSession,
         identity: IDocLayoutMountIdentity,
-        dataModel: DocumentDataModel
+        dataModel: DocumentDataModel,
+        options: IDocLayoutStartOptions
     ): IDocLayoutProjectionPayload {
-        const customBlockViewports = collectCustomBlockViewports(dataModel);
+        const customBlockViewports = collectCustomBlockViewports(dataModel, options);
         const previousCustomBlockViewports = session.customBlockViewportsByMount.get(identity.mountId);
         const customRangePresentations = this._collectCustomRangePresentations(dataModel);
         const customRangePresentationMap = toCustomRangePresentationMap(customRangePresentations);

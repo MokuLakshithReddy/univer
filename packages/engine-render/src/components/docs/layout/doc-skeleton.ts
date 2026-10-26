@@ -15,6 +15,19 @@
  */
 
 import type { ColumnSeparatorType, ISectionColumnProperties, LocaleService, Nullable } from '@univerjs/core';
+import {
+    BaselineOffset,
+    BooleanNumber,
+    CustomRangeType,
+    DataStreamTreeNodeType,
+    DataStreamTreeTokenType,
+    DocumentFlavor,
+    PositionedObjectLayoutType,
+    PRESET_LIST_TYPE,
+    SectionType,
+    Skeleton,
+} from '@univerjs/core';
+import { Subject } from 'rxjs';
 import type {
     IDocumentSkeletonCached,
     IDocumentSkeletonColumn,
@@ -63,18 +76,6 @@ import type {
 } from './document-layout-types';
 import type { IDocumentPaginationMetrics, ILayoutContext } from './tools';
 import {
-    BaselineOffset,
-    BooleanNumber,
-    DataStreamTreeNodeType,
-    DataStreamTreeTokenType,
-    DocumentFlavor,
-    PositionedObjectLayoutType,
-    PRESET_LIST_TYPE,
-    SectionType,
-    Skeleton,
-} from '@univerjs/core';
-import { Subject } from 'rxjs';
-import {
     BreakType,
     DocumentSkeletonPageType,
     GlyphType,
@@ -87,12 +88,11 @@ import { Liquid } from '../liquid';
 import { getDocsTableRenderViewport, hasDocsTableHorizontalViewport } from '../table-render-viewport';
 import { DocumentEditArea } from '../view-model/document-view-model';
 import { getHyphenationLanguage } from './block/paragraph/shaping';
-import { dealWithSection } from './block/section';
+import { dealWithSection, rollbackSectionPages } from './block/section';
 import {
     cachePrecomputedSlicedTableSkeletons,
     cachePrecomputedTableSkeleton,
     getTableIdAndSliceIndex,
-
     startTableSkeletonBuild,
     startTableSkeletonsBuild,
     stepTableSkeletonBuild,
@@ -118,7 +118,6 @@ import {
     getLastPage,
     getNullSkeleton,
     getPageFromPath,
-
     prepareSectionBreakConfig,
     resetContext,
     setPageParent,
@@ -338,6 +337,7 @@ interface IIncrementalLayoutState {
     sectionBreakConfig: Nullable<ISectionBreakConfig>;
     layoutAnchor: Nullable<number>;
     priorityAnchor: Nullable<number>;
+    minimumPublicationHeight: number;
     priorityPageIndex: number;
     priorityPageEnd: Nullable<number>;
     interactionPageTail: Nullable<IInteractionPageTail>;
@@ -362,6 +362,7 @@ interface IIncrementalLayoutState {
     lastPublishedPageCount: number;
     lastPublishedBlockCount: number;
     publicationRevision: number;
+    paginationRevision: number;
     reuseUnaffectedTail: boolean;
     allowMetadataOnlyStructuralTailReuse: boolean;
     reusedTail: boolean;
@@ -857,9 +858,7 @@ export interface IFindNodeRestrictions {
 function getPagePath(page: IDocumentSkeletonPage) {
     const path: (string | number)[] = [];
 
-    // eslint-disable-next-line ts/no-explicit-any
     let skeNode: any = page;
-    // eslint-disable-next-line ts/no-explicit-any
     let parent: any = skeNode.parent;
     while (parent) {
         if (parent.page === skeNode && parent.noteId && parent.parent?.notes) {
@@ -1028,6 +1027,8 @@ function serializePaginatedContinuationCheckpoint(page: IDocumentSkeletonPagePat
         sectionId: page.sectionId,
         headerId: page.headerId,
         footerId: page.footerId,
+        headerLayoutKey: page.headerLayoutKey,
+        footerLayoutKey: page.footerLayoutKey,
         pageWidth: page.pageWidth,
         pageHeight: page.pageHeight,
         pageOrient: page.pageOrient,
@@ -1156,8 +1157,8 @@ function getSegmentPageFromRelativePath(
 
     const { headerId, footerId, pageWidth } = rootPage;
     const segmentPages = [
-        headerId == null ? null : skeletonData.skeHeaders.get(headerId)?.get(pageWidth),
-        footerId == null ? null : skeletonData.skeFooters.get(footerId)?.get(pageWidth),
+        headerId == null ? null : skeletonData.skeHeaders.get(headerId)?.get(rootPage.headerLayoutKey ?? pageWidth),
+        footerId == null ? null : skeletonData.skeFooters.get(footerId)?.get(rootPage.footerLayoutKey ?? pageWidth),
     ];
 
     for (const segmentPage of segmentPages) {
@@ -1201,7 +1202,10 @@ export class DocumentSkeleton extends Skeleton {
 
     private _paginationMetrics: Nullable<IDocumentPaginationMetrics> = null;
 
+    private _completedPageCount: number | undefined;
     private _lastCompleteSkeletonData: Nullable<IDocumentSkeletonCached> = null;
+    private _completedHeadingCollapseSignature = '[]';
+    private _publishedHeadingCollapseSignature = '[]';
 
     private _pendingInvalidationAnchor: Nullable<number> = null;
 
@@ -1237,19 +1241,22 @@ export class DocumentSkeleton extends Skeleton {
 
     private _modernHorizontalMargin: number | undefined;
 
+    private readonly _lineGap: number;
+
     constructor(
         private _docViewModel: DocumentViewModel,
         localeService: LocaleService,
-        options: { isolateIncrementalPublications?: boolean } = {}
+        options: { isolateIncrementalPublications?: boolean; lineGap?: number } = {}
     ) {
         super(localeService);
         this._isolateIncrementalPublications = options.isolateIncrementalPublications !== false;
+        this._lineGap = options.lineGap ?? 0;
     }
 
     static create(
         docViewModel: DocumentViewModel,
         localeService: LocaleService,
-        options?: { isolateIncrementalPublications?: boolean }
+        options?: { isolateIncrementalPublications?: boolean; lineGap?: number }
     ) {
         return new DocumentSkeleton(docViewModel, localeService, options);
     }
@@ -1261,6 +1268,7 @@ export class DocumentSkeleton extends Skeleton {
         this._layoutPageMaterialized$.complete();
         this._skeletonData = null;
         this._lastCompleteSkeletonData = null;
+        this._completedPageCount = undefined;
         this._pendingInvalidationAnchor = null;
         this._externalLayoutProgress = null;
         this._externalProtectedPages = null;
@@ -1288,12 +1296,28 @@ export class DocumentSkeleton extends Skeleton {
         this._externalLayoutProgress = null;
         this._externalProtectedPages = null;
         this._externalProtectedContinuousLayout = null;
-        const ctx = this._prepareLayoutContext();
-        this._skeletonData = this._createSkeleton(ctx, bounds);
+        let ctx = this._prepareLayoutContext();
+        while (true) {
+            this._skeletonData = this._createSkeleton(ctx, bounds);
+            const retry = this._prepareFieldCountRetry(ctx);
+            if (retry == null) {
+                break;
+            }
+            ctx = retry;
+        }
         this._lastCompleteSkeletonData = this._skeletonData;
+        this._completedHeadingCollapseSignature = this._getHeadingCollapseSignature();
+        this._publishedHeadingCollapseSignature = this._completedHeadingCollapseSignature;
+        this._completedPageCount = this._skeletonData?.pages.length;
         this._pendingInvalidationAnchor = null;
         this._paginationMetrics = ctx.paginationMetrics ?? null;
         this._dirty$.next(true);
+    }
+
+    private _getHeadingCollapseSignature(): string {
+        return JSON.stringify(this.getViewModel().getHeadingSections()
+            .filter((heading) => heading.collapsed)
+            .map((heading) => [heading.paragraphId, heading.startOffset, heading.endOffset]));
     }
 
     startIncrementalLayout(options?: {
@@ -1304,6 +1328,8 @@ export class DocumentSkeleton extends Skeleton {
         modernPageWidth?: number;
         modernHorizontalMargin?: number;
         bounds?: IViewportInfo;
+        /** Keep the current Modern viewport until a visibility change fills its replacement. */
+        minimumPublicationHeight?: number;
         reuseUnaffectedTail?: boolean;
         /** The caller proved this edit only changes offset-preserving render metadata. */
         allowMetadataOnlyStructuralTailReuse?: boolean;
@@ -1311,26 +1337,33 @@ export class DocumentSkeleton extends Skeleton {
         /** Cooperative schedulers wait for code-split dictionaries before publishing. */
         waitForHyphenationPatterns?: boolean;
     }): number {
-        this._modernPageWidth = options?.modernPageWidth;
-        this._modernHorizontalMargin = options?.modernHorizontalMargin;
+        // A fold changes the visibility of the suffix even when the heading's own geometry is unchanged.
+        const headingCollapseSignature = this._getHeadingCollapseSignature();
+        const headingVisibilityChanged = headingCollapseSignature !== this._completedHeadingCollapseSignature ||
+            headingCollapseSignature !== this._publishedHeadingCollapseSignature;
+        const layoutOptions = headingVisibilityChanged
+            ? { ...options, anchor: 0, priorityAnchor: options?.priorityAnchor ?? options?.anchor ?? 0, invalidation: undefined, reuseUnaffectedTail: false, preserveInteractionWindow: false }
+            : options;
+        this._modernPageWidth = layoutOptions?.modernPageWidth;
+        this._modernHorizontalMargin = layoutOptions?.modernHorizontalMargin;
         this.cancelIncrementalLayout();
         this._externalLayoutProgress = null;
         this._externalProtectedPages = null;
         this._externalProtectedContinuousLayout = null;
 
         const generation = ++this._layoutGeneration;
-        const reason = options?.reason ?? (options?.anchor == null ? 'initial' : 'edit');
+        const reason = layoutOptions?.reason ?? (layoutOptions?.anchor == null ? 'initial' : 'edit');
         const dataModel = this.getViewModel().getDataModel();
         const sections = this.getViewModel().getChildren();
         const topLevelBlocks = this._getTopLevelBlocks(sections);
         const mode: DocumentLayoutMode = dataModel.documentStyle.documentFlavor === DocumentFlavor.MODERN
             ? 'continuous'
             : 'paginated';
-        const priorityAnchor = options?.priorityAnchor ?? options?.anchor;
+        const priorityAnchor = layoutOptions?.priorityAnchor ?? layoutOptions?.anchor;
         const hasPublishedCheckpoint = this._skeletonData != null || this._lastCompleteSkeletonData != null;
         const previousSkeleton = this._lastCompleteSkeletonData ?? this._skeletonData;
-        const invalidation = options?.invalidation;
-        const layoutAnchor = options?.anchor;
+        const invalidation = layoutOptions?.invalidation;
+        const layoutAnchor = layoutOptions?.anchor;
         const invalidationAnchor = layoutAnchor == null
             ? this._pendingInvalidationAnchor ?? undefined
             : Math.min(layoutAnchor, this._pendingInvalidationAnchor ?? layoutAnchor);
@@ -1368,8 +1401,8 @@ export class DocumentSkeleton extends Skeleton {
             invalidationAnchor,
             mode,
             invalidation,
-            options?.preserveInteractionWindow === true,
-            options?.reuseUnaffectedTail === false
+            layoutOptions?.preserveInteractionWindow === true,
+            layoutOptions?.reuseUnaffectedTail === false
         );
         // The first-open anchor only prioritizes the initial viewport; it does not
         // represent mutated content. Carry invalidation across generations only
@@ -1388,6 +1421,9 @@ export class DocumentSkeleton extends Skeleton {
             sectionBreakConfig: null,
             layoutAnchor: incrementalStart.layoutAnchor,
             priorityAnchor: priorityAnchor ?? null,
+            minimumPublicationHeight: mode === 'continuous' && headingVisibilityChanged && this._skeletonData != null
+                ? layoutOptions?.minimumPublicationHeight ?? 0
+                : 0,
             priorityPageIndex,
             priorityPageEnd,
             interactionPageTail: incrementalStart.interactionPageTail,
@@ -1414,15 +1450,16 @@ export class DocumentSkeleton extends Skeleton {
                 : 0,
             lastPublishedBlockCount: incrementalStart.processedBlockCount,
             publicationRevision: 0,
-            reuseUnaffectedTail: options?.reuseUnaffectedTail !== false,
-            allowMetadataOnlyStructuralTailReuse: options?.allowMetadataOnlyStructuralTailReuse === true,
+            reuseUnaffectedTail: layoutOptions?.reuseUnaffectedTail !== false,
+            paginationRevision: 0,
+            allowMetadataOnlyStructuralTailReuse: layoutOptions?.allowMetadataOnlyStructuralTailReuse === true,
             reusedTail: false,
             tailConvergencePageCount: incrementalStart.ctx.skeleton.pages.length,
             dirtyRetries: new Map(),
             preparedHyphenationNodes: new WeakSet(),
             pendingHyphenation: null,
             hyphenationError: null,
-            waitForHyphenationPatterns: options?.waitForHyphenationPatterns === true,
+            waitForHyphenationPatterns: layoutOptions?.waitForHyphenationPatterns === true,
         };
 
         return generation;
@@ -1506,7 +1543,7 @@ export class DocumentSkeleton extends Skeleton {
             blocks[anchorBlockIndex].block.children.length === 0;
         // A Modern page can contain the entire document. Paginated tail reuse
         // deep-clones that page in one atomic step, bypassing the slice budget.
-        if (mode === 'paginated' && reuseInteractionPagePrefix && canResumePlainParagraph &&
+        if (mode === 'paginated' && reuseInteractionPagePrefix && invalidation != null && canResumePlainParagraph &&
             !previousSkeleton.pages[anchorPageIndex]?.notes?.length) {
             const interactionPreviousAnchor = mapCurrentOffsetToPrevious(anchor, invalidation);
             const interactionPageIndex = interactionSkeleton == null
@@ -2150,6 +2187,8 @@ export class DocumentSkeleton extends Skeleton {
         if (
             !state.cancelled &&
             canPublish &&
+            // A NUMPAGES retry is provisional until its pagination converges.
+            (state.ctx.fieldCountCandidates == null || state.complete) &&
             (!suppressPreAnchorPublication || shouldPublishPriority || state.complete)
         ) {
             if (state.mode === 'paginated') {
@@ -2158,6 +2197,8 @@ export class DocumentSkeleton extends Skeleton {
             const isFinalPublication = state.complete && publishedPageCount >= pageCount;
             if (isFinalPublication) {
                 this._lastCompleteSkeletonData = state.ctx.skeleton;
+                this._completedHeadingCollapseSignature = this._getHeadingCollapseSignature();
+                this._completedPageCount = state.ctx.skeleton?.pages.length;
                 this._pendingInvalidationAnchor = null;
             }
             this._skeletonData = isFinalPublication
@@ -2165,6 +2206,7 @@ export class DocumentSkeleton extends Skeleton {
                 : !this._isolateIncrementalPublications && state.mode === 'paginated'
                     ? this._createSharedPublishablePartialSkeleton(state, publishedPageCount)
                     : this._createPublishablePartialSkeleton(state, publishedPageCount);
+            this._publishedHeadingCollapseSignature = this._getHeadingCollapseSignature();
             this._paginationMetrics = state.ctx.paginationMetrics ?? null;
             this._dirty$.next(true);
             didPublish = true;
@@ -2214,6 +2256,20 @@ export class DocumentSkeleton extends Skeleton {
         // the same on cloned foreground pages so the temporary page list has the
         // same physical-page identity as the previous complete skeleton.
         mergeContinuousDuplicatePages(activePages, state.mode === 'continuous');
+        if (state.mode === 'continuous') {
+            // Inline objects otherwise appear only when the complete tail is finalized.
+            // Position publication-owned copies without moving the active layout's objects.
+            const paragraphConfigCache = new Map([...state.ctx.paragraphConfigCache].map(([segmentId, configs]) => [
+                segmentId,
+                new Map([...configs].map(([index, config]) => [index, config.paragraphInlineSkeDrawings?.size
+                    ? {
+                        ...config,
+                        paragraphInlineSkeDrawings: new Map([...config.paragraphInlineSkeDrawings].map(([id, drawing]) => [id, { ...drawing }])),
+                    }
+                    : config])),
+            ]));
+            updateInlineDrawingCoordsAndBorder({ ...state.ctx, paragraphConfigCache }, activePages);
+        }
 
         const flowPages = [...stablePages, ...activePages];
         const currentPriorityPageIndex = state.priorityAnchor == null
@@ -2655,6 +2711,8 @@ export class DocumentSkeleton extends Skeleton {
             if (progress.complete) {
                 setPageParent(skeletonData.pages, skeletonData);
                 this._lastCompleteSkeletonData = skeletonData;
+                this._completedHeadingCollapseSignature = this._getHeadingCollapseSignature();
+                this._completedPageCount = skeletonData?.pages.length;
                 this._pendingInvalidationAnchor = null;
                 this._externalProtectedContinuousLayout = null;
             }
@@ -2799,6 +2857,8 @@ export class DocumentSkeleton extends Skeleton {
             }
             setPageParent(skeletonData.pages, skeletonData);
             this._lastCompleteSkeletonData = skeletonData;
+            this._completedHeadingCollapseSignature = this._getHeadingCollapseSignature();
+            this._completedPageCount = skeletonData?.pages.length;
             this._pendingInvalidationAnchor = null;
             this._externalProtectedPages = null;
             this._externalProtectedContinuousLayout = null;
@@ -2806,6 +2866,7 @@ export class DocumentSkeleton extends Skeleton {
 
         this._skeletonData = skeletonData;
         this._externalLayoutProgress = progress.complete ? null : progress;
+        this._publishedHeadingCollapseSignature = this._getHeadingCollapseSignature();
         this._dirty$.next(true);
         this._layoutProgress$.next(progress);
         return { didReplaceProtectedPages };
@@ -2905,7 +2966,9 @@ export class DocumentSkeleton extends Skeleton {
             ?.sections[flow.sectionIndex]
             ?.columns[flow.columnIndex];
         if (existingColumn == null) {
-            throw new Error('Continuous layout cannot merge a Worker tail without the Main interaction boundary.');
+            // A retained folded window can omit sections restored by this generation.
+            // Commit the queued canonical Worker geometry together when it completes.
+            return null;
         }
 
         const firstUnprotectedLine = flow.lines[firstUnprotectedLineOffset];
@@ -3191,14 +3254,14 @@ export class DocumentSkeleton extends Skeleton {
             const { headerId, footerId, pageWidth } = skePage;
 
             if (pageType === DocumentSkeletonPageType.HEADER) {
-                const skeHeader = skeHeaders.get(headerId)?.get(pageWidth);
+                const skeHeader = skeHeaders.get(headerId)?.get(skePage.headerLayoutKey ?? pageWidth);
                 if (skeHeader == null) {
                     return;
                 } else {
                     skePage = skeHeader;
                 }
             } else if (pageType === DocumentSkeletonPageType.FOOTER) {
-                const skeFooter = skeFooters.get(footerId)?.get(pageWidth);
+                const skeFooter = skeFooters.get(footerId)?.get(skePage.footerLayoutKey ?? pageWidth);
                 if (skeFooter == null) {
                     return;
                 } else {
@@ -3395,7 +3458,7 @@ export class DocumentSkeleton extends Skeleton {
                 let exactMatch: Nullable<INodeInfo> = null;
 
                 if (editArea === DocumentEditArea.HEADER || editArea === DocumentEditArea.FOOTER) {
-                    const headerSke = skeHeaders.get(headerId)?.get(pageWidth) as IDocumentSkeletonPage;
+                    const headerSke = skeHeaders.get(headerId)?.get(page.headerLayoutKey ?? pageWidth) as IDocumentSkeletonPage;
 
                     if (headerSke) {
                         exactMatch = this._collectNearestNode(
@@ -3411,7 +3474,7 @@ export class DocumentSkeleton extends Skeleton {
                         );
                     }
 
-                    const footerSke = skeFooters.get(footerId)?.get(pageWidth) as IDocumentSkeletonPage;
+                    const footerSke = skeFooters.get(footerId)?.get(page.footerLayoutKey ?? pageWidth) as IDocumentSkeletonPage;
 
                     if (footerSke) {
                         exactMatch = exactMatch ?? this._collectNearestNode(
@@ -3470,7 +3533,7 @@ export class DocumentSkeleton extends Skeleton {
                     const { headerId, footerId, pageWidth } = page;
 
                     if (segmentId !== '' && !this._docViewModel.getNoteTreeMap().has(segmentId)) {
-                        const headerSke = skeHeaders.get(headerId)?.get(pageWidth) as IDocumentSkeletonPage;
+                        const headerSke = skeHeaders.get(headerId)?.get(page.headerLayoutKey ?? pageWidth) as IDocumentSkeletonPage;
 
                         if (headerSke) {
                             exactMatch = this._collectNearestNode(
@@ -3486,7 +3549,7 @@ export class DocumentSkeleton extends Skeleton {
                             );
                         }
 
-                        const footerSke = skeFooters.get(footerId)?.get(pageWidth) as IDocumentSkeletonPage;
+                        const footerSke = skeFooters.get(footerId)?.get(page.footerLayoutKey ?? pageWidth) as IDocumentSkeletonPage;
 
                         if (footerSke) {
                             exactMatch = exactMatch ?? this._collectNearestNode(
@@ -3534,7 +3597,7 @@ export class DocumentSkeleton extends Skeleton {
 
                         const { headerId, pageWidth } = page;
 
-                        const segmentSke = segmentId === headerId ? skeHeaders.get(segmentId)?.get(pageWidth) : skeFooters.get(segmentId)?.get(pageWidth);
+                        const segmentSke = segmentId === headerId ? skeHeaders.get(segmentId)?.get(page.headerLayoutKey ?? pageWidth) : skeFooters.get(segmentId)?.get(page.footerLayoutKey ?? pageWidth);
                         if (segmentSke) {
                             exactMatch = this._collectNearestNode(
                                 segmentSke,
@@ -3867,7 +3930,14 @@ export class DocumentSkeleton extends Skeleton {
                             }
                             const startX = divideLeft + glyph.left;
                             const endX = startX + glyph.width;
-                            const node = { node: glyph, ...segment, ratioX: x / (startX + endX), ratioY: y / (startY + endY) };
+                            const contentTop = startY + (line.marginTop ?? 0) + (line.paddingTop ?? 0);
+                            const node = {
+                                node: glyph,
+                                ...segment,
+                                ratioX: x / (startX + endX),
+                                ratioY: y / (startY + endY),
+                                isInsideGlyph: x >= startX && x <= endX && y >= contentTop && y <= contentTop + line.contentHeight,
+                            };
                             if (sameLine && x >= startX && x <= endX) {
                                 return node;
                             }
@@ -3934,7 +4004,13 @@ export class DocumentSkeleton extends Skeleton {
                                 && y >= baseline - bBox.aba && y <= baseline + bBox.abd;
                             const sameLine = hitsLine || hitsPaintedVerticalBounds;
                             const distanceY = sameLine ? Number.NEGATIVE_INFINITY : Math.abs(y - endY);
-                            const node = { node: glyph, ...segment, ratioX: x / (startX + endX), ratioY: y / (startY + endY) };
+                            const node = {
+                                node: glyph,
+                                ...segment,
+                                ratioX: x / (startX + endX),
+                                ratioY: y / (startY + endY),
+                                isInsideGlyph: x >= startX && x <= endX && sameLine,
+                            };
                             const hitsGlyphAdvance = x >= startX && x <= endX;
                             if (sameLine) {
                                 const usesPositionedAdvance = ts?.textAdvance !== undefined && glyph.content.length === 1 && !ts.textSkewX;
@@ -4097,6 +4173,7 @@ export class DocumentSkeleton extends Skeleton {
         return {
             generation: state.generation,
             publicationRevision: state.publicationRevision,
+            paginationRevision: state.paginationRevision,
             didPublish,
             didPublishAnchor,
             publishedPageCount: state.lastPublishedPageCount,
@@ -4237,7 +4314,31 @@ export class DocumentSkeleton extends Skeleton {
         }
 
         if (state.mode === 'continuous') {
-            return state.laidOutThrough >= anchor;
+            if (state.laidOutThrough < anchor) {
+                return false;
+            }
+            if (state.minimumPublicationHeight <= 0) {
+                return true;
+            }
+            // Page heights are finalized on publication. Measure stable flow directly
+            // so a large document can hand off after filling the viewport, not its tail.
+            let height = 0;
+            for (const page of state.ctx.skeleton.pages) {
+                for (const section of page.sections) {
+                    let sectionHeight = 0;
+                    for (const column of section.columns) {
+                        for (let index = column.lines.length - 1; index >= 0; index--) {
+                            const line = column.lines[index];
+                            if (line.paragraphIndex <= state.stableLaidOutThrough) {
+                                sectionHeight = Math.max(sectionHeight, line.top + line.lineHeight);
+                                break;
+                            }
+                        }
+                    }
+                    height += sectionHeight;
+                }
+            }
+            return height >= state.minimumPublicationHeight;
         }
 
         // A paginated page is not publishable merely because the edited paragraph
@@ -4561,7 +4662,7 @@ export class DocumentSkeleton extends Skeleton {
         }
 
         const paragraphNode = sectionNode.children[state.paragraphIndex];
-        const tableNode = paragraphNode?.children.length === 1 &&
+        const tableNode = paragraphNode && !ctx.viewModel.getCollapsedHeadingAtOffset(paragraphNode.startIndex) && paragraphNode.children.length === 1 &&
             paragraphNode.children[0].nodeType === DataStreamTreeNodeType.TABLE
             ? paragraphNode.children[0]
             : null;
@@ -4992,8 +5093,9 @@ export class DocumentSkeleton extends Skeleton {
             .slice(0, sectionIndex)
             .reduce((count, item) => count + item.children.length, 0);
 
-        // dealWithSection has already rolled the active skeleton back to this
-        // paragraph. Resume from that checkpoint in a later scheduler slice.
+        // A float can invalidate a paragraph on an earlier page, outside the
+        // single block passed to dealWithSection in this scheduler slice.
+        rollbackSectionPages(layoutAnchor, ctx.skeleton.pages);
         state.sectionIndex = sectionIndex;
         state.paragraphIndex = paragraphIndex;
         state.sectionInitialized = false;
@@ -5058,9 +5160,57 @@ export class DocumentSkeleton extends Skeleton {
                 updateInlineDrawingCoordsAndBorder(ctx, [page]);
             }
         }
+        const retry = this._prepareFieldCountRetry(ctx);
+        if (retry != null) {
+            state.paginationRevision++;
+            state.ctx = retry;
+            state.sectionIndex = 0;
+            state.paragraphIndex = 0;
+            state.sectionInitialized = false;
+            state.sectionBreakConfig = null;
+            state.layoutAnchor = null;
+            state.laidOutThrough = -1;
+            state.stableLaidOutThrough = -1;
+            state.processedBlockCount = 0;
+            state.pendingTableBuild = null;
+            state.pendingSlicedTableBuild = null;
+            state.pendingParagraphCheckpoint = null;
+            state.stablePageCount = 0;
+            state.finalizedPageCount = 0;
+            state.lastPublishedPageCount = 0;
+            state.lastPublishedBlockCount = 0;
+            state.anchorPublished = false;
+            state.reuseUnaffectedTail = false;
+            state.reusedTail = false;
+            state.tailConvergencePageCount = 0;
+            state.interactionPageTail = null;
+            state.interactionPageComplete = false;
+            state.interactionWindowComplete = false;
+            state.interactionWindowResume = null;
+            return;
+        }
         setPageParent(skeleton.pages, skeleton);
         state.complete = true;
         state.stableLaidOutThrough = state.laidOutThrough;
+    }
+
+    getCompletedPageCount(): number | undefined {
+        return this._completedPageCount;
+    }
+
+    private _prepareFieldCountRetry(ctx: ILayoutContext): ILayoutContext | null {
+        if (!ctx.hasNumPagesFields || ctx.fieldPageCount === ctx.skeleton.pages.length) {
+            return null;
+        }
+        const retry = this._prepareLayoutContext();
+        retry.fieldPageCount = ctx.skeleton.pages.length;
+        retry.headerFooterMinimumMargins = ctx.headerFooterMinimumMargins;
+        retry.fieldCountCandidates = ctx.fieldCountCandidates ?? new Set();
+        if (ctx.fieldPageCount != null) {
+            retry.fieldCountCandidates.add(ctx.fieldPageCount);
+        }
+        retry.fieldCountCycle = ctx.fieldCountCycle || retry.fieldCountCandidates.has(retry.fieldPageCount);
+        return retry;
     }
 
     private _prepareLayoutContext(): ILayoutContext {
@@ -5080,6 +5230,7 @@ export class DocumentSkeleton extends Skeleton {
         } = documentStyle;
 
         const docsConfig: IDocsConfig = {
+            lineGap: this._lineGap,
             headerTreeMap,
             footerTreeMap,
             lists,
@@ -5107,7 +5258,13 @@ export class DocumentSkeleton extends Skeleton {
             drawingAnchor,
         };
 
+        const hasNumPagesFields = [...headerTreeMap.values(), ...footerTreeMap.values()].some((story) =>
+            story.getBody()?.customRanges?.some((range) => range.rangeType === CustomRangeType.FIELD &&
+                range.properties?.fieldType === 'NUMPAGES' && range.properties.locked !== BooleanNumber.TRUE));
         const ctx: ILayoutContext = {
+            fieldPageCount: this.getCompletedPageCount(),
+            hasNumPagesFields,
+            headerFooterMinimumMargins: hasNumPagesFields ? new Map() : undefined,
             viewModel,
             dataModel,
             noteReferences: documentStyle.documentFlavor === DocumentFlavor.TRADITIONAL
@@ -5498,8 +5655,8 @@ export class DocumentSkeleton extends Skeleton {
             let segmentPage = page;
 
             if (segmentId) {
-                const maybeHeaderSke = skeHeaders.get(segmentId)?.get(pageWidth);
-                const maybeFooterSke = skeFooters.get(segmentId)?.get(pageWidth);
+                const maybeHeaderSke = skeHeaders.get(segmentId)?.get(page.headerLayoutKey ?? pageWidth);
+                const maybeFooterSke = skeFooters.get(segmentId)?.get(page.footerLayoutKey ?? pageWidth);
                 const note = page.notes?.find((fragment) => fragment.noteId === segmentId &&
                     fragment.page.st <= charIndex && charIndex <= fragment.page.ed);
                 if (note) {

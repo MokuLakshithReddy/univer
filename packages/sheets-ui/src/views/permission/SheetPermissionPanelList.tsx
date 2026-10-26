@@ -17,8 +17,6 @@
 import type { IRange, Workbook } from '@univerjs/core';
 import type { IPermissionPoint } from '@univerjs/protocol';
 import type { IRangeProtectionRule, IWorksheetProtectionRule } from '@univerjs/sheets';
-import type { LocaleKey } from '../../locale/types';
-import type { IPermissionPanelRule } from '../../services/permission/sheet-permission-panel.model';
 import {
     IAuthzIoService,
     ICommandService,
@@ -45,6 +43,8 @@ import {
 import { ISidebarService, useDependency, useObservable } from '@univerjs/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { distinctUntilChanged, from, merge, startWith, switchMap } from 'rxjs';
+import type { LocaleKey } from '../../locale/types';
+import type { IPermissionPanelRule } from '../../services/permission/sheet-permission-panel.model';
 import { UNIVER_SHEET_PERMISSION_PANEL } from '../../consts/permission';
 import { useHighlightRange } from '../../hooks/use-highlight-range';
 import { SheetPermissionUserManagerService } from '../../services/permission/sheet-permission-user-list.service';
@@ -273,6 +273,7 @@ function SheetPermissionPanelListContent({ ActionRowComponent }: Required<ISheet
                                     className={clsx(`
                                       univer-mt-3 univer-rounded-lg univer-p-3
                                       hover:univer-bg-gray-50
+                                      dark:hover:!univer-bg-gray-800
                                     `, borderClassName)}
                                     onMouseMove={() => {
                                         const { subUnitId, unitType } = rule;
@@ -313,6 +314,7 @@ function SheetPermissionPanelListContent({ ActionRowComponent }: Required<ISheet
                                                             className={`
                                                               univer-box-border univer-h-6 univer-rounded-sm univer-p-1
                                                               hover:univer-bg-gray-200
+                                                              dark:hover:!univer-bg-gray-700
                                                             `}
                                                             onClick={() => handleEdit(rule as IPermissionPanelRule)}
                                                         >
@@ -326,6 +328,7 @@ function SheetPermissionPanelListContent({ ActionRowComponent }: Required<ISheet
                                                             className={`
                                                               univer-box-border univer-h-6 univer-rounded-sm univer-p-1
                                                               hover:univer-bg-gray-200
+                                                              dark:hover:!univer-bg-gray-700
                                                             `}
                                                             onClick={() => handleDelete(rule)}
                                                         >
@@ -385,8 +388,8 @@ function SheetPermissionPanelListContent({ ActionRowComponent }: Required<ISheet
                                             <Tooltip title={rule.description}>
                                                 <div
                                                     className={`
-                                                      univer-text-3 univer-mt-2 univer-max-w-64 univer-truncate
-                                                      univer-text-sm univer-text-gray-400
+                                                      univer-mt-2 univer-max-w-64 univer-truncate univer-text-sm
+                                                      univer-text-gray-400
                                                     `}
                                                 >
                                                     {rule.description}

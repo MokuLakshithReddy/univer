@@ -49,7 +49,6 @@ import {
     SetQueryFormulaDependencyResultMutation,
 } from '../commands/mutations/set-formula-calculation.mutation';
 import { SetImageFormulaDataMutation } from '../commands/mutations/set-image-formula-data.mutation';
-import { DEFAULT_CYCLE_REFERENCE_COUNT } from '../config/config';
 import { FormulaDataModel } from '../models/formula-data.model';
 import { ICalculateFormulaService } from '../services/calculate-formula.service';
 import { FormulaExecutedStateType } from '../services/runtime.service';
@@ -106,6 +105,7 @@ export class CalculateController extends Disposable {
 
     private async _calculate(formulaDirtyData: Partial<IFormulaDirtyData>) {
         const {
+            dirtyIterationUnits,
             forceCalculation: forceCalculate = false,
             dirtyRanges = [],
             dirtyNameMap = {},
@@ -114,7 +114,7 @@ export class CalculateController extends Disposable {
             dirtyUnitFeatureMap = {},
             dirtyUnitOtherFormulaMap = {},
             clearDependencyTreeCache = {},
-            maxIteration = DEFAULT_CYCLE_REFERENCE_COUNT,
+            calculationSettings,
             rowData,
             externalReferences,
             isCalculateTreeModel = false,
@@ -126,6 +126,7 @@ export class CalculateController extends Disposable {
         const arrayFormulaRange = this._formulaDataModel.getArrayFormulaRange();
 
         this._calculateFormulaService.execute({
+            dirtyIterationUnits,
             formulaData,
             arrayFormulaCellData,
             arrayFormulaRange,
@@ -137,7 +138,7 @@ export class CalculateController extends Disposable {
             dirtyUnitFeatureMap,
             dirtyUnitOtherFormulaMap,
             clearDependencyTreeCache,
-            maxIteration,
+            calculationSettings,
             isCalculateTreeModel,
             rowData,
             externalReferences,
@@ -248,6 +249,7 @@ export class CalculateController extends Disposable {
                 SetFormulaCalculationNotificationMutation.id,
                 {
                     functionsExecutedState,
+                    circularReferences: data.circularReferences,
                 },
                 {
                     onlyLocal: true,
@@ -289,6 +291,7 @@ export class CalculateController extends Disposable {
     private async _applyResult(data: IAllRuntimeData) {
         const {
             unitData,
+            sourceFormulaData,
             unitOtherData,
             arrayFormulaRange,
             arrayFormulaCellData,
@@ -340,6 +343,7 @@ export class CalculateController extends Disposable {
             SetFormulaCalculationResultMutation.id,
             {
                 unitData: convertRuntimeToUnitData(unitData),
+                sourceFormulaData,
                 unitOtherData,
             },
             {

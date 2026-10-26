@@ -17,12 +17,11 @@
 import type { IUser, LocaleType, UniverInstanceType } from '@univerjs/core';
 import type { IAddCommentCommandParams, IThreadComment, IUpdateCommentCommandParams } from '@univerjs/thread-comment';
 import type { IUniverUIConfig } from '@univerjs/ui';
-import type { LocaleKey } from '../locale/types';
-import type { IThreadCommentEditorInstance } from './ThreadCommentEditor';
 import {
     dateKit,
     generateRandomId,
     ICommandService,
+    isSafeUrl,
     LOCALE_META,
     LocaleService,
     RegionService,
@@ -42,6 +41,8 @@ import {
 import { UI_PLUGIN_CONFIG_KEY, useConfigValue, useDependency, useEvent, useObservable } from '@univerjs/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { debounceTime, map, of, startWith } from 'rxjs';
+import type { LocaleKey } from '../locale/types';
+import type { IThreadCommentEditorInstance } from './ThreadCommentEditor';
 import { SetActiveCommentOperation } from '../commands/operations/comment.operations';
 import { transformDocument2TextNodes, transformTextNodes2Document } from './thread-comment-editor/util';
 import { getThreadCommentEditorId } from './thread-comment-tree/util';
@@ -247,7 +248,10 @@ const ThreadCommentItem = (props: IThreadCommentItemProps) => {
                                                     <li>
                                                         <button
                                                             type="button"
-                                                            className="hover:univer-bg-gray-200"
+                                                            className={`
+                                                              hover:univer-bg-gray-200
+                                                              dark:hover:!univer-bg-gray-800
+                                                            `}
                                                             onClick={() => onEditingChange?.(true)}
                                                         >
                                                             {localeService.t<LocaleKey>('thread-comment-ui.item.edit')}
@@ -256,7 +260,10 @@ const ThreadCommentItem = (props: IThreadCommentItemProps) => {
                                                     <li>
                                                         <button
                                                             type="button"
-                                                            className="hover:univer-bg-gray-200"
+                                                            className={`
+                                                              hover:univer-bg-gray-200
+                                                              dark:hover:!univer-bg-gray-800
+                                                            `}
                                                             onClick={handleDeleteItem}
                                                         >
                                                             {localeService.t<LocaleKey>('thread-comment-ui.item.delete')}
@@ -331,8 +338,9 @@ const ThreadCommentItem = (props: IThreadCommentItemProps) => {
                 )
                 : (
                     <div
+                        tabIndex={-1}
                         className={`
-                          univer-text-sm univer-text-gray-900
+                          univer-select-text univer-text-sm univer-text-gray-900
                           dark:!univer-text-gray-0
                         `}
                     >
@@ -351,11 +359,29 @@ const ThreadCommentItem = (props: IThreadCommentItemProps) => {
                                         switch (node.type) {
                                             case 'mention':
                                                 return (
-                                                    <a className="univer-text-primary-600" key={key}>
+                                                    <span className="univer-text-primary-600" key={key}>
                                                         {node.content.label}
                                                         {' '}
+                                                    </span>
+                                                );
+                                            case 'hyperlink': {
+                                                const url = node.range.properties?.url;
+                                                if (!isSafeUrl(url)) {
+                                                    return node.content;
+                                                }
+                                                return (
+                                                    <a
+                                                        key={key}
+                                                        href={url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="univer-text-primary-600 univer-underline"
+                                                        onClick={(event) => event.stopPropagation()}
+                                                    >
+                                                        {node.content}
                                                     </a>
                                                 );
+                                            }
                                             default:
                                                 return node.content;
                                         }
@@ -496,6 +522,10 @@ export const ThreadCommentTree = (props: IThreadCommentTreeProps) => {
     const subUnitName = getSubUnitName(comments?.root.subUnitId ?? subUnitId);
     const editorVisible = showEdit && !editingId && !resolved;
     const title = `${displayRef ?? refStr ?? comments?.root.ref ?? ''}${subUnitName ? ' · ' : ''}${subUnitName}`;
+    const resolveLabel = localeService.t<LocaleKey>(resolved
+        ? 'thread-comment-ui.item.markUnresolved'
+        : 'thread-comment-ui.item.markResolved');
+    const deleteLabel = localeService.t<LocaleKey>('thread-comment-ui.item.delete');
     const threadCommentEditorId = getThreadCommentEditorId({
         location,
         unitId,
@@ -516,7 +546,14 @@ export const ThreadCommentTree = (props: IThreadCommentTreeProps) => {
                 'univer-shadow': !resolved && (showHighlight || isHover || location === ThreadCommentTreeLocation.CELL),
             })}
             style={style}
-            onClick={onClick}
+            onClick={(event) => {
+                const selection = event.currentTarget.ownerDocument.getSelection();
+                if (selection && !selection.isCollapsed && selection.anchorNode && selection.focusNode &&
+                    event.currentTarget.contains(selection.anchorNode) && event.currentTarget.contains(selection.focusNode)) {
+                    return;
+                }
+                onClick?.();
+            }}
             onMouseEnter={() => {
                 onMouseEnter?.();
                 setIsHover(true);
@@ -558,42 +595,44 @@ export const ThreadCommentTree = (props: IThreadCommentTreeProps) => {
                 </div>
                 {!!comments && (
                     <div className="univer-flex univer-flex-shrink-0 univer-flex-grow-0 univer-flex-row">
-                        <button
-                            type="button"
-                            aria-label={localeService.t<LocaleKey>(resolved
-                                ? 'thread-comment-ui.filter.status.unsolved'
-                                : 'thread-comment-ui.filter.status.resolved')}
-                            className={clsx(`
-                              univer-ml-1 univer-inline-flex univer-size-6 univer-cursor-pointer univer-items-center
-                              univer-justify-center univer-rounded-[3px] univer-border-0 univer-bg-transparent
-                              univer-p-0 univer-text-base
-                              hover:univer-bg-gray-50
-                              rtl:univer-ml-0 rtl:univer-mr-1
-                              dark:hover:!univer-bg-gray-800
-                            `, {
-                                'univer-text-green-500': resolved,
-                            })}
-                            onClick={handleResolve}
-                        >
-                            {resolved ? <SuccessIcon /> : <SuccessOutlineIcon />}
-                        </button>
+                        <Tooltip title={resolveLabel}>
+                            <button
+                                type="button"
+                                aria-label={resolveLabel}
+                                className={clsx(`
+                                  univer-ml-1 univer-inline-flex univer-size-6 univer-cursor-pointer univer-items-center
+                                  univer-justify-center univer-rounded-[3px] univer-border-0 univer-bg-transparent
+                                  univer-p-0 univer-text-base
+                                  hover:univer-bg-gray-50
+                                  rtl:univer-ml-0 rtl:univer-mr-1
+                                  dark:hover:!univer-bg-gray-800
+                                `, {
+                                    'univer-text-green-500': resolved,
+                                })}
+                                onClick={handleResolve}
+                            >
+                                {resolved ? <SuccessIcon /> : <SuccessOutlineIcon />}
+                            </button>
+                        </Tooltip>
                         {currentUser?.userID === comments.root.personId
                             ? (
-                                <button
-                                    type="button"
-                                    aria-label={localeService.t<LocaleKey>('thread-comment-ui.item.delete')}
-                                    className={`
-                                      univer-ml-1 univer-inline-flex univer-size-6 univer-cursor-pointer
-                                      univer-items-center univer-justify-center univer-rounded-[3px] univer-border-0
-                                      univer-bg-transparent univer-p-0 univer-text-base
-                                      hover:univer-bg-gray-50
-                                      rtl:univer-ml-0 rtl:univer-mr-1
-                                      dark:hover:!univer-bg-gray-800
-                                    `}
-                                    onClick={handleDeleteRoot}
-                                >
-                                    <DeleteIcon />
-                                </button>
+                                <Tooltip title={deleteLabel}>
+                                    <button
+                                        type="button"
+                                        aria-label={deleteLabel}
+                                        className={`
+                                          univer-ml-1 univer-inline-flex univer-size-6 univer-cursor-pointer
+                                          univer-items-center univer-justify-center univer-rounded-[3px] univer-border-0
+                                          univer-bg-transparent univer-p-0 univer-text-base
+                                          hover:univer-bg-gray-50
+                                          rtl:univer-ml-0 rtl:univer-mr-1
+                                          dark:hover:!univer-bg-gray-800
+                                        `}
+                                        onClick={handleDeleteRoot}
+                                    >
+                                        <DeleteIcon />
+                                    </button>
+                                </Tooltip>
                             )
                             : null}
                     </div>

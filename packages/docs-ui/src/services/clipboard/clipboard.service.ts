@@ -18,7 +18,6 @@ import type { DocumentDataModel, IDisposable, IDocumentBody, IDocumentData, IUnd
 import type { IDocImage } from '@univerjs/docs-drawing';
 import type { IRectRangeWithStyle, ITextRangeWithStyle } from '@univerjs/engine-render';
 import type { Observable } from 'rxjs';
-import type { DocPasteMode, IDocPasteStyle } from './paste-options';
 import {
     BuildTextUtils,
     CommandType,
@@ -34,11 +33,13 @@ import {
     ErrorService,
     generateRandomId,
     getBodySlice,
+    getBodySliceForTextXAction,
     ICommandService,
     ILogService,
     ImageSourceType,
     Inject,
     IPermissionService,
+    isCommentEditorID,
     isInternalEditorID,
     IUndoRedoService,
     IUniverInstanceService,
@@ -73,6 +74,7 @@ import {
     PLAIN_TEXT_CLIPBOARD_MIME_TYPE,
 } from '@univerjs/ui';
 import { BehaviorSubject } from 'rxjs';
+import type { DocPasteMode, IDocPasteStyle } from './paste-options';
 import { isTopLevelStructuralGap } from '../../basics/paragraph';
 import { CutContentCommand, InnerPasteCommand } from '../../commands/commands/clipboard.inner.command';
 import { getCursorWhenDelete } from '../../commands/commands/doc-delete.command';
@@ -196,6 +198,8 @@ export interface IDocClipboardPasteContext {
 }
 
 export interface IDocClipboardHook {
+    /** Opt an internal rich-text editor into the post-paste format menu. */
+    supportsPasteOptions?(unitId: string): boolean;
     /** Supply a rich fragment for selections owned by a plugin rather than native text ranges. */
     onCopySelection?(unitId: string): { documentData: IDocumentData; plainText: string } | undefined;
     onCopyDocData?(doc: Partial<IDocumentData>, context: IDocClipboardCopyDocDataContext): Partial<IDocumentData>;
@@ -235,6 +239,7 @@ export interface IDocClipboardService {
     pasteFromClipboard(mode?: DocPasteMode): Promise<boolean>;
     legacyPaste(options: IDocClipboardPayload): Promise<boolean>;
     readonly pasteOptions$: Observable<IDocPasteOptionsState | null>;
+    isPasteOptionsEnabled(unitId: string): boolean;
     setNextPasteMode(mode: DocPasteMode): void;
     dismissPasteOptions(): void;
     changePasteMode(mode: DocPasteMode): Promise<boolean>;
@@ -261,31 +266,46 @@ export function getTableClipboardBodySlice(body: IDocumentBody, range: IRectRang
 function getTableCellContentClipboardBodySlice(body: IDocumentBody, start: number, end: number): IDocumentBody {
     const bodySlice = getBodySlice(body, start, end + 2); // +2 for '\r\n in last cell'
 
-    const dataStream = DataStreamTreeTokenType.TABLE_START +
+    const prefix = DataStreamTreeTokenType.TABLE_START +
         DataStreamTreeTokenType.TABLE_ROW_START +
-        DataStreamTreeTokenType.TABLE_CELL_START +
-        bodySlice.dataStream +
+        DataStreamTreeTokenType.TABLE_CELL_START;
+    bodySlice.dataStream = prefix + bodySlice.dataStream +
         DataStreamTreeTokenType.TABLE_CELL_END +
         DataStreamTreeTokenType.TABLE_ROW_END +
         DataStreamTreeTokenType.TABLE_END;
 
-    bodySlice.dataStream = dataStream;
+    const offset = prefix.length;
+    // Every retained metadata offset is relative to the cell content before wrapping.
     bodySlice.textRuns?.forEach((textRun) => {
-        const { st, ed } = textRun;
-        textRun.st = st + 3;
-        textRun.ed = ed + 3;
+        textRun.st += offset;
+        textRun.ed += offset;
     });
-
-    bodySlice.tables?.forEach((table) => {
-        const { startIndex, endIndex } = table;
-        table.startIndex = startIndex + 3;
-        table.endIndex = endIndex + 3;
+    [
+        bodySlice.paragraphs,
+        bodySlice.sectionBreaks,
+        bodySlice.customBlocks,
+        bodySlice.docxRawCustomBlocks,
+        bodySlice.docxRawBlocks,
+    ].forEach((items) => items?.forEach((item) => {
+        item.startIndex += offset;
+    }));
+    [
+        bodySlice.tables,
+        bodySlice.columnGroups,
+        bodySlice.blockRanges,
+        bodySlice.customRanges,
+        bodySlice.customDecorations,
+    ].forEach((ranges) => ranges?.forEach((range) => {
+        range.startIndex += offset;
+        range.endIndex += offset;
+    }));
+    bodySlice.docxExportExcludedRanges?.forEach((range) => {
+        range.start += offset;
+        range.end += offset;
     });
-
-    bodySlice.paragraphs?.forEach((paragraph) => {
-        const { startIndex } = paragraph;
-        paragraph.startIndex = startIndex + 3;
-    });
+    if (bodySlice.renderedPageBreaks) {
+        bodySlice.renderedPageBreaks = bodySlice.renderedPageBreaks.map((index) => index + offset);
+    }
 
     return bodySlice;
 }
@@ -323,7 +343,12 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
         super();
         this._umdToHtml = new UDMToHtmlService(docHtmlExportService);
         this.disposeWithMe(this._commandService.beforeCommandExecuted((command) => {
-            if (!this._applyingPaste && command.type === CommandType.MUTATION) {
+            if (this._applyingPaste || command.type !== CommandType.MUTATION) {
+                return;
+            }
+            const unitId = (command.params as { unitId?: string } | undefined)?.unitId;
+            const pasteUnitId = this._pasteOptions$.value?.unitId ?? this._getCurrentDocumentUnitId();
+            if (!unitId || unitId === pasteUnitId) {
                 this.dismissPasteOptions();
             }
         }));
@@ -433,6 +458,10 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
         return this.legacyPaste({ ...payload, mode });
     }
 
+    isPasteOptionsEnabled(unitId: string): boolean {
+        return !isInternalEditorID(unitId) || this._clipboardHooks.some((hook) => hook.supportsPasteOptions?.(unitId));
+    }
+
     setNextPasteMode(mode: DocPasteMode): void {
         this._nextPasteMode = mode;
     }
@@ -529,17 +558,31 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
         if (!unitId || !this._canEditTargets(unitId)) {
             return false;
         }
-        if (!cachedSource && !payload.html && !payload.text && !payload.internalJson && !payload.files.length) {
+        const isCommentEditor = isCommentEditorID(unitId);
+        if (!cachedSource && !payload.html && !payload.text && !payload.internalJson && (isCommentEditor || !payload.files.length)) {
             return false;
         }
         const generation = this._pasteGeneration;
-        const mode = unitId === DOCS_NORMAL_EDITOR_UNIT_ID_KEY ? 'text' : payload.mode ?? 'source';
+        const mode = isCommentEditor || unitId === DOCS_NORMAL_EDITOR_UNIT_ID_KEY ? 'text' : payload.mode ?? 'source';
         const style = this._getPasteStyle(unitId);
-        const source = await this._preparePaste(payload, mode, cachedSource);
+        const source = await (isCommentEditor && payload.text !== undefined
+            ? { body: { dataStream: payload.text } }
+            : this._preparePaste(payload, mode, cachedSource));
         if (generation !== this._pasteGeneration || !this._canEditTargets(unitId)) {
             return false;
         }
-        let doc = applyDocPasteMode(source, mode, style, payload.text);
+        let doc: Partial<IDocumentData>;
+        if (isCommentEditor) {
+            const text = payload.text ?? getClipboardPlainText(source);
+            if (!text) {
+                return false;
+            }
+            const body = BuildTextUtils.transform.fromPlainText(text);
+            delete body.customRanges;
+            doc = { body };
+        } else {
+            doc = applyDocPasteMode(source, mode, style, payload.text);
+        }
         if (unitId === DOCS_NORMAL_EDITOR_UNIT_ID_KEY) {
             doc = { ...source, body: { ...source.body!, textRuns: [] } };
             if (payload.text) {
@@ -554,7 +597,7 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
             // Keep preceding debounced typing out of the paste's undo entry.
             this._stateChangeManager.flushPendingChanges(unitId);
             const result = this._paste(doc, unitId);
-            if (result && !isInternalEditorID(unitId)) {
+            if (result && this.isPasteOptionsEnabled(unitId)) {
                 this._savePasteSession(payload, mode === 'text' ? cachedSource : source, style, mode, unitId);
             }
             return result;
@@ -833,23 +876,19 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
         plainTextList?: readonly string[]
     ): Promise<void> {
         const copyId = generateRandomId(6);
-        const text =
-            (plainTextList
-                ? plainTextList.join('\n')
-                : documentList.length > 1
-                    ? documentList.map((doc) => doc.body?.dataStream || '').join('\n')
-                    : documentList[0].body?.dataStream || '')
-                .replaceAll(DataStreamTreeTokenType.TABLE_START, '')
-                .replaceAll(DataStreamTreeTokenType.TABLE_END, '')
-                .replaceAll(DataStreamTreeTokenType.TABLE_ROW_START, '')
-                .replaceAll(DataStreamTreeTokenType.TABLE_ROW_END, '')
-                .replaceAll(DataStreamTreeTokenType.TABLE_CELL_START, '')
-                .replaceAll(DataStreamTreeTokenType.TABLE_CELL_END, '')
-                .replaceAll(DataStreamTreeTokenType.BLOCK_START, '')
-                .replaceAll(DataStreamTreeTokenType.BLOCK_END, '')
-                // Replace `\r\n` in table cell to white space.
-                .replaceAll('\r\n', ' ')
-                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        const text = (plainTextList ?? documentList.map((doc) => doc.body?.dataStream || ''))
+            .join('\n')
+            .replaceAll(DataStreamTreeTokenType.TABLE_START, '')
+            .replaceAll(DataStreamTreeTokenType.TABLE_END, '')
+            .replaceAll(DataStreamTreeTokenType.TABLE_ROW_START, '')
+            .replaceAll(DataStreamTreeTokenType.TABLE_ROW_END, '')
+            .replaceAll(DataStreamTreeTokenType.TABLE_CELL_START, '')
+            .replaceAll(DataStreamTreeTokenType.TABLE_CELL_END, '')
+            .replaceAll(DataStreamTreeTokenType.BLOCK_START, '')
+            .replaceAll(DataStreamTreeTokenType.BLOCK_END, '')
+            // Replace `\r\n` in table cell to white space.
+            .replaceAll('\r\n', ' ')
+            .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
 
         let html = this._umdToHtml.convert(documentList);
         let internalJson = '';
@@ -894,6 +933,10 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
 
             if (index > -1) {
                 this._clipboardHooks.splice(index, 1);
+                const state = this._pasteOptions$.value;
+                if (state && !this.isPasteOptionsEnabled(state.unitId)) {
+                    this.dismissPasteOptions();
+                }
             }
         });
     }
@@ -945,26 +988,13 @@ export class DocClipboardService extends Disposable implements IDocClipboardServ
                 continue;
             }
 
-            const deleteRange = { startOffset, endOffset, collapsed };
-
-            const docBody = docDataModel.getSelfOrHeaderFooterModel(segmentId)?.sliceBody(deleteRange.startOffset, deleteRange.endOffset, sliceType);
-            if (docBody == null) {
-                continue;
-            }
-
-            // Text inside a cell is not a nested table. Keep only completely copied table structures.
-            if (docBody.tables?.length) {
-                const completeTableIds = new Set(body.tables?.filter((table) => (
-                    table.startIndex >= startOffset && table.endIndex <= endOffset
-                )).map((table) => table.tableId));
-                docBody.tables = docBody.tables.filter((table) => completeTableIds.has(table.tableId));
-            }
+            const docBody = getBodySliceForTextXAction(body, startOffset, endOffset, false, sliceType);
 
             results.push(docBody);
             plainTextResults.push(
                 copyContentHook?.(
-                    deleteRange.startOffset,
-                    deleteRange.endOffset,
+                    startOffset,
+                    endOffset,
                     {
                         body,
                         segmentId,

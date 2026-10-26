@@ -17,6 +17,7 @@
 const locale = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Paste special',
             title: 'Paste options',
             source: 'Keep source formatting',
             destination: 'Match destination formatting',
@@ -53,6 +54,8 @@ const locale = {
             recovering: 'Restoring document layout…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Fullscreen',
             font: 'Font',
             fontSize: 'Font size',
             bold: 'Bold',
@@ -115,6 +118,19 @@ const locale = {
             deleteTable: 'Delete table',
         },
         headerFooter: {
+            navigation: 'Navigation',
+            options: 'Options',
+            position: 'Position',
+            refreshFields: 'Update fields',
+            pageNumber: 'Page number',
+            currentPage: 'Current page',
+            totalPages: 'Total pages',
+            dateTime: 'Date & time',
+            updateAutomatically: 'Update automatically',
+            insertFailed: 'The document changed or cannot be edited. Close this dialog and try again.',
+            goToHeader: 'Go to header',
+            goToFooter: 'Go to footer',
+
             header: 'Header',
             footer: 'Footer',
             panel: 'Header & Footer Settings',
@@ -225,6 +241,10 @@ const locale = {
             decreaseIndent: 'Decrease indent',
             defaultTextColor: 'Default text color',
             noBackground: 'No background',
+        },
+        heading: {
+            collapse: 'Collapse',
+            expand: 'Expand',
         },
         'page-settings': {
             'document-setting': 'Page Setup',

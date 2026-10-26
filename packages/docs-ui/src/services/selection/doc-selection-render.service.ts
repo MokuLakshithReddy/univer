@@ -33,16 +33,18 @@ import type {
     ITextSelectionStyle,
 } from '@univerjs/engine-render';
 import type { Subscription } from 'rxjs';
-import type { RectRange } from './rect-range';
 import {
     DataStreamTreeTokenType,
     DOC_RANGE_TYPE,
+    DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY,
+    DOCS_NORMAL_EDITOR_UNIT_ID_KEY,
     IContextService,
     ILogService,
     Inject,
     isInternalEditorID,
     IUniverInstanceService,
     Optional,
+    RANGE_DIRECTION,
     RxDisposable,
     UniverInstanceType,
 } from '@univerjs/core';
@@ -58,6 +60,7 @@ import {
 } from '@univerjs/engine-render';
 import { ILayoutService, KeyCode } from '@univerjs/ui';
 import { BehaviorSubject, filter, fromEvent, merge, Subject, takeUntil } from 'rxjs';
+import type { RectRange } from './rect-range';
 import {
     DOC_EMBED_INTERACTION_BOUNDARY_OWNER_ATTRIBUTE,
     IDocEmbedInteractionBoundaryService,
@@ -76,7 +79,7 @@ import {
     serializeTextRange,
 } from './selection-utils';
 import { cursorConvertToTextRange, TextRange } from './text-range';
-import { getWordBoundaryByIndex } from './word-boundary';
+import { getWordBoundaryByIndex, getWordSelectionByIndex } from './word-boundary';
 
 export interface IEditorInputConfig {
     event: Event | CompositionEvent | KeyboardEvent;
@@ -179,6 +182,14 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         return this._input === this._getOwnerDocument().activeElement;
     }
 
+    get inputElement(): HTMLDivElement {
+        return this._input;
+    }
+
+    get selectionContainer(): HTMLDivElement {
+        return this._container;
+    }
+
     get isEditing() {
         return this._textSelectionInner$.value?.isEditing === true;
     }
@@ -186,7 +197,7 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
     get canFocusing() {
         const ownerDocument = this._getOwnerDocument();
         const activeElement = ownerDocument.activeElement;
-        return !this._shouldPreserveExternalFocus() && !this._isAnotherEditorFocused() && (
+        return !this._isInUnfocusedFrame() && !this._shouldPreserveExternalFocus() && !this._isAnotherEditorFocused() && (
             this.isFocusing ||
             activeElement === ownerDocument.body ||
             activeElement === null ||
@@ -294,10 +305,8 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
             return false;
         }
         this._syncNoteSegment(ranges[0]);
-        const isBodyOrNote = this._currentSegmentId === '' ||
-            this._context.unit.getSnapshot().notes?.[this._currentSegmentId] != null;
         let currentLogicalSelection: Nullable<IDocSelectionInnerParam> = null;
-        if (isBodyOrNote && ranges.length > 0) {
+        if (ranges.length > 0) {
             const { unitId } = this._context;
             const selection = this._docSelectionManagerService.getSelectionInfo({ unitId, subUnitId: unitId });
             // Only a refresh of the current logical selection belongs to this
@@ -386,7 +395,6 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         return true;
     }
 
-    // eslint-disable-next-line max-lines-per-function
     addDocRanges(
         ranges: ISuccinctDocRangeParam[],
         isEditing = true,
@@ -438,7 +446,14 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         };
 
         for (const range of ranges) {
-            const { startOffset, endOffset, rangeType, startNodePosition, endNodePosition } = range;
+            const { rangeType } = range;
+            let { startOffset, endOffset, startNodePosition, endNodePosition } = range;
+            // Published ranges use sorted offsets. Keep their anchor and focus
+            // when rebuilding a backward selection after layout or zoom changes.
+            if (rangeType !== DOC_RANGE_TYPE.RECT && range.direction === RANGE_DIRECTION.BACKWARD && startOffset < endOffset) {
+                [startOffset, endOffset] = [endOffset, startOffset];
+                [startNodePosition, endNodePosition] = [endNodePosition, startNodePosition];
+            }
             const rangeStyle = range.style ?? style;
 
             if (rangeType !== DOC_RANGE_TYPE.RECT && startOffset === endOffset) {
@@ -506,8 +521,7 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
                     if (textRange) {
                         this._addTextRange(textRange);
                     }
-                    // eslint-disable-next-line unused-imports/no-unused-vars
-                } catch (_e) {
+                } catch {
                     generalAddRange(startOffset, endOffset, rangeStyle);
                 }
             } else {
@@ -647,7 +661,10 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
             return;
         }
 
-        const wordBoundary = getWordBoundaryByIndex(content, nodeIndex, st);
+        const isSheetEditor = this._context.unitId === DOCS_NORMAL_EDITOR_UNIT_ID_KEY || this._context.unitId === DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY;
+        const wordBoundary = isSheetEditor
+            ? getWordSelectionByIndex(content, nodeIndex, st, startNode.ratioX < 0.5)
+            : getWordBoundaryByIndex(content, nodeIndex, st);
 
         if (wordBoundary != null) {
             this.removeAllRanges();
@@ -699,7 +716,6 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
     }
 
     // Handle pointer down.
-    // eslint-disable-next-line max-lines-per-function, complexity
     __onPointDown(evt: IPointerEvent | IMouseEvent, shouldFocusInput = true) {
         const { scene, mainComponent } = this._context;
         const skeleton = this._docSkeletonManagerService.getSkeleton();
@@ -1284,7 +1300,8 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         const anchor = activeRangeInstance?.getAnchor();
 
         if (!anchor || (anchor && !anchor.visible) || this.activeViewPort == null) {
-            if (preserveFocus || this._shouldPreserveExternalFocus() || (!forceFocus && this._isAnotherEditorFocused())) {
+            if (preserveFocus || this._shouldPreserveExternalFocus() ||
+                (!forceFocus && (this._isInUnfocusedFrame() || this._isAnotherEditorFocused()))) {
                 return;
             }
             this.focus();
@@ -1502,7 +1519,6 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
     }
 
     // FIXME: listeners here are not correctly disposed
-    // eslint-disable-next-line max-lines-per-function
     private _initInputEvents() {
         this.disposeWithMe(
             fromEvent(this._input, 'keydown').subscribe((e) => {
@@ -1635,6 +1651,21 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
             config.activeRange = this._getActiveRange();
             config.rangeList = this._getAllTextRanges();
         }
+        const { unitId } = this._context;
+        if (config.activeRange != null || unitId !== DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY || this._context.unit.getBody()?.dataStream !== '\r\n') {
+            return;
+        }
+        const selection = this._docSelectionManagerService.getSelectionInfo({ unitId, subUnitId: unitId });
+        if (selection == null || selection.textRanges.length !== 1 || selection.rectRanges.length > 0) {
+            return;
+        }
+        const caret = selection.textRanges[0];
+        if (!caret.isActive || caret.startOffset !== 0 || caret.endOffset !== 0) {
+            return;
+        }
+        // A cleared formula bar can receive native input before its empty caret has render geometry.
+        config.activeRange = { ...caret, segmentId: selection.segmentId, segmentPage: selection.segmentPage };
+        config.rangeList = [config.activeRange];
     }
 
     protected _handleInputFocus(event: Event): void {
@@ -1815,6 +1846,12 @@ export class DocSelectionRenderService extends RxDisposable implements IRenderMo
         }
 
         return this._embedInteractionBoundaryService?.hasRecentInteractionFor?.(currentEmbedOwner, ownerDocument) === true;
+    }
+
+    private _isInUnfocusedFrame(): boolean {
+        const ownerDocument = this._getOwnerDocument();
+        const ownerWindow = ownerDocument.defaultView;
+        return ownerWindow != null && ownerWindow.parent !== ownerWindow && !ownerDocument.hasFocus();
     }
 
     private _isAnotherEditorFocused(): boolean {

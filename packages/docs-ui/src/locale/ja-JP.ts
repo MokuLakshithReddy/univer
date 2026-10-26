@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: '形式を選択して貼り付け',
             title: '貼り付けのオプション',
             source: '元の書式を保持',
             destination: '貼り付け先の書式に合わせる',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'ドキュメントのレイアウトを復元しています…',
         },
         toolbar: {
+            zoom: 'ズーム',
+            fullscreen: '全画面表示',
             font: 'フォント',
             fontSize: 'フォントサイズ',
             bold: '太字',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: '表を削除',
         },
         headerFooter: {
+            navigation: '移動',
+            options: 'オプション',
+            position: '位置',
+            refreshFields: 'フィールドを更新',
+            pageNumber: 'ページ番号',
+            currentPage: '現在のページ',
+            totalPages: '総ページ数',
+            dateTime: '日付と時刻',
+            updateAutomatically: '自動更新',
+            insertFailed: '文書が変更されたか編集できません。ダイアログを閉じて再試行してください。',
+            goToHeader: 'ヘッダーに移動',
+            goToFooter: 'フッターに移動',
+
             linkToPrevious: '前と同じ',
             header: 'ヘッダー',
             footer: 'フッター',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'インデントを減らす',
             defaultTextColor: 'デフォルトの文字色',
             noBackground: '背景なし',
+        },
+        heading: {
+            collapse: '折りたたむ',
+            expand: '展開する',
         },
         'page-settings': {
             'document-setting': '文書設定',

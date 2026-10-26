@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Pegado especial',
             title: 'Opciones de pegado',
             source: 'Mantener formato de origen',
             destination: 'Adaptar al formato de destino',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Restaurando el diseño del documento…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Pantalla completa',
             font: 'Fuente',
             fontSize: 'Tamaño de fuente',
             bold: 'Negrita',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Eliminar tabla',
         },
         headerFooter: {
+            navigation: 'Navegación',
+            options: 'Opciones',
+            position: 'Posición',
+            refreshFields: 'Actualizar campos',
+            pageNumber: 'Número de página',
+            currentPage: 'Página actual',
+            totalPages: 'Total de páginas',
+            dateTime: 'Fecha y hora',
+            updateAutomatically: 'Actualizar automáticamente',
+            insertFailed: 'El documento ha cambiado o no se puede editar. Cierre este diálogo e inténtelo de nuevo.',
+            goToHeader: 'Ir al encabezado',
+            goToFooter: 'Ir al pie de página',
+
             linkToPrevious: 'Vincular al anterior',
             header: 'Encabezado',
             footer: 'Pie de página',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Disminuir sangría',
             defaultTextColor: 'Color de texto predeterminado',
             noBackground: 'Sin fondo',
+        },
+        heading: {
+            collapse: 'Contraer',
+            expand: 'Expandir',
         },
         'page-settings': {
             'document-setting': 'Configuración de documento',

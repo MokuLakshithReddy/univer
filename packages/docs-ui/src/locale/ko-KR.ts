@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: '선택하여 붙여넣기',
             title: '붙여넣기 옵션',
             source: '원본 서식 유지',
             destination: '대상 서식에 맞추기',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: '문서 레이아웃을 복구하는 중…',
         },
         toolbar: {
+            zoom: '확대/축소',
+            fullscreen: '전체 화면',
             font: '글꼴',
             fontSize: '글꼴 크기',
             bold: '굵게',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: '표 삭제',
         },
         headerFooter: {
+            navigation: '탐색',
+            options: '옵션',
+            position: '위치',
+            refreshFields: '필드 업데이트',
+            pageNumber: '페이지 번호',
+            currentPage: '현재 페이지',
+            totalPages: '전체 페이지 수',
+            dateTime: '날짜 및 시간',
+            updateAutomatically: '자동 업데이트',
+            insertFailed: '문서가 변경되었거나 편집할 수 없습니다. 대화 상자를 닫고 다시 시도하세요.',
+            goToHeader: '머리글로 이동',
+            goToFooter: '바닥글로 이동',
+
             linkToPrevious: '이전 항목에 연결',
             header: '머리글',
             footer: '바닥글',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: '들여쓰기 줄이기',
             defaultTextColor: '기본 텍스트 색상',
             noBackground: '배경 없음',
+        },
+        heading: {
+            collapse: '접기',
+            expand: '펼치기',
         },
         'page-settings': {
             'document-setting': '문서 설정',

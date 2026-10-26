@@ -747,7 +747,9 @@ export function updateInlineDrawingCoordsAndBorder(ctx: ILayoutContext, pages: I
                 ctx.dataModel.getUnitId?.() ?? '',
                 drawingAnchor?.top,
                 affectNonInlineDrawings,
-                paragraphConfig?.documentCompatibilityPolicy
+                paragraphConfig?.documentCompatibilityPolicy,
+                drawingAnchor?.left,
+                ctx.dataModel.documentStyle.documentFlavor === DocumentFlavor.TRADITIONAL
             );
         }
 
@@ -956,7 +958,7 @@ export interface IDocumentSkeletonLineContext {
 }
 
 export type DocumentSkeletonTableSource = 'page' | 'table-cell' | 'column' | 'header' | 'footer';
-type HeaderFooterSkeletonMap = Map<string, Map<number, IDocumentSkeletonPage>>;
+type HeaderFooterSkeletonMap = Map<string, Map<number | string, IDocumentSkeletonPage>>;
 
 export interface IDocumentSkeletonTableCellGeometry {
     cell: IDocumentSkeletonPage;
@@ -1036,7 +1038,7 @@ export function documentSkeletonTableIterator(
         });
 
         const rootPageDocumentLeft = docsLeft + rootPage.marginLeft;
-        const headerPage = rootPage.headerId == null ? undefined : skeHeaders?.get(rootPage.headerId)?.get(rootPage.pageWidth);
+        const headerPage = rootPage.headerId == null ? undefined : skeHeaders?.get(rootPage.headerId)?.get(rootPage.headerLayoutKey ?? rootPage.pageWidth);
         if (headerPage != null) {
             collectPageTables({
                 contexts,
@@ -1054,7 +1056,7 @@ export function documentSkeletonTableIterator(
             });
         }
 
-        const footerPage = rootPage.footerId == null ? undefined : skeFooters?.get(rootPage.footerId)?.get(rootPage.pageWidth);
+        const footerPage = rootPage.footerId == null ? undefined : skeFooters?.get(rootPage.footerId)?.get(rootPage.footerLayoutKey ?? rootPage.pageWidth);
         if (footerPage != null) {
             collectPageTables({
                 contexts,
@@ -1742,7 +1744,8 @@ export function getFontCreateConfig(
     viewModel: DocumentViewModel,
     paragraphNode: DataStreamTreeNode,
     sectionBreakConfig: ISectionBreakConfig,
-    paragraph: IDocumentLayoutParagraph
+    paragraph: IDocumentLayoutParagraph,
+    includeCustomRangeStyle = true
 ) {
     const {
         gridType = GridType.LINES,
@@ -1768,7 +1771,7 @@ export function getFontCreateConfig(
     const customDecoration = viewModel.getCustomDecoration(index + startIndex);
     const showCustomDecoration = customDecoration && (customDecoration.show !== false);
     const customDecorationStyle = showCustomDecoration ? getCustomDecorationStyle(customDecoration) : null;
-    const customRange = viewModel.getCustomRange(index + startIndex);
+    const customRange = includeCustomRangeStyle ? viewModel.getCustomRange(index + startIndex) : null;
     const showCustomRange = customRange && (customRange.show !== false);
     const customRangeStyle = showCustomRange ? getCustomRangeStyle(customRange) : null;
     const hasAddonStyle = showCustomRange || showCustomDecoration || !!bullet || paragraphStyle?.namedStyleType || paragraphStyle?.textStyle != null || paragraphStyle?.paragraphMarkTextStyle != null;
@@ -1954,6 +1957,12 @@ export interface IDocumentPaginationMetrics {
 }
 
 export interface ILayoutContext {
+    headerFooterFieldContext?: { pageNumber: number; pageCount?: number };
+    fieldPageCount?: number;
+    hasNumPagesFields?: boolean;
+    fieldCountCandidates?: Set<number>;
+    fieldCountCycle?: boolean;
+    headerFooterMinimumMargins?: Map<string, number>;
     noteReferences?: ReadonlyMap<number, INoteReferenceLayout>;
     footnoteLayout?: DocumentFootnoteLayout;
     endnoteLayout?: DocumentEndnoteLayout;

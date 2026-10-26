@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Специальная вставка',
             title: 'Параметры вставки',
             source: 'Сохранить исходное форматирование',
             destination: 'Использовать форматирование назначения',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Восстановление макета документа…',
         },
         toolbar: {
+            zoom: 'Масштаб',
+            fullscreen: 'Полноэкранный режим',
             font: 'Шрифт',
             fontSize: 'Размер шрифта',
             bold: 'Полужирный',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Удалить таблицу',
         },
         headerFooter: {
+            navigation: 'Навигация',
+            options: 'Параметры',
+            position: 'Положение',
+            refreshFields: 'Обновить поля',
+            pageNumber: 'Номер страницы',
+            currentPage: 'Текущая страница',
+            totalPages: 'Всего страниц',
+            dateTime: 'Дата и время',
+            updateAutomatically: 'Обновлять автоматически',
+            insertFailed: 'Документ изменён или недоступен для редактирования. Закройте диалог и повторите попытку.',
+            goToHeader: 'К верхнему колонтитулу',
+            goToFooter: 'К нижнему колонтитулу',
+
             linkToPrevious: 'Связать с предыдущим',
             header: 'Верхний колонтитул',
             footer: 'Нижний колонтитул',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Уменьшить отступ',
             defaultTextColor: 'Цвет текста по умолчанию',
             noBackground: 'Без фона',
+        },
+        heading: {
+            collapse: 'Свернуть',
+            expand: 'Развернуть',
         },
         'page-settings': {
             'document-setting': 'Настройки документа',

@@ -4,7 +4,7 @@
 
 **AI 에이전트를 위한 Office Harness**
 
-스프레드시트 · 문서 · 프레젠테이션 · Bases · Boards · PDF(출시 예정)
+스프레드시트 · 문서 · 프레젠테이션 · Bases · Boards · PDF
 
 고성능, 완전한 커스터마이징을 지원하는 Office SDK
 
@@ -50,13 +50,31 @@ Univer는 단순한 스프레드시트 파일 뷰어가 아닙니다. 자체 생
 
 [Univer 제품군](https://univer.ai/)의 오피스 도구는 저장과 연산을 위한 런타임을 공유합니다. 서로 다른 도구의 콘텐츠를 자유롭게 조합하고 임베드하며, 원본이 바뀌면 연결된 데이터와 참조도 함께 업데이트됩니다. 사람과 AI 에이전트가 같은 파일에서 협업할 수 있습니다. 제품별 기능은 [기능 목록](https://univer.ai/capabilities)을, 이 저장소의 범위는 [Open Source와 Pro](#-open-source와-pro)를 참고하세요.
 
+### Univer Office SDK로 협업 도구 만들기
+
+[![Univer Office SDK로 협업 도구 만들기](https://i.ytimg.com/vi/1p-SMEiK6Kg/maxresdefault.jpg)](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
+[데모 보기](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
 ## Univer Office SDK로 만든 프로젝트
+
+### 주요 사례: Univer Workspace
+
+[Univer Workspace](https://github.com/dream-num/univer-workspace)는 Univer Office SDK를 기반으로 구축된 오픈소스 워크스페이스로, 직접 호스팅할 수 있습니다. 사람과 AI 에이전트가 오피스 콘텐츠를 만들고, 함께 작업하며, 검토할 수 있습니다. 개발자는 전체 구현을 참고하여 SDK 통합 방법을 배우고 자체 제품을 만들 수 있습니다.
+
+[![연결된 스프레드시트 옆에 표시된 Workspace 미니 앱. 지표, 차트, 컨트롤이 셀에 연결되어 있습니다](../img/workspace-mini-app.png)](https://github.com/dream-num/univer-workspace)
+
+- 에이전트는 의사결정 대시보드, 대화형 보고서, 비즈니스 대시보드 등 스프레드시트 기반 미니 앱을 생성할 수 있습니다.
+- 웹 페이지의 지표, 차트, 컨트롤은 셀에 연결되어 데이터 읽기, 쓰기, 공동 업데이트를 지원합니다.
+
+[Univer Workspace 살펴보기](https://github.com/dream-num/univer-workspace)
+
+### 다른 사례
 
 다음 오픈소스 프로젝트는 Univer Office SDK를 기반으로 만들어졌습니다.
 
 | 프로젝트 | 설명 |
 | --- | --- |
-| [Univer Workspace](https://github.com/dream-num/univer-workspace) | 사람과 AI 에이전트를 위한 오피스 워크스페이스로, 공동 편집과 에이전트 변경 사항 검토를 지원합니다. |
 | [Univer Office for DeepSeek Harness](https://github.com/dream-num/dsh-univer-office) | 연결된 콘텐츠, 검증, 에이전트 협업을 위한 격리된 Worktree를 제공하는 DeepSeek Harness용 오피스 플러그인입니다. |
 | [Univer CLI](https://github.com/dream-num/univer-cli) | 에이전트가 오피스 콘텐츠를 만들고 편집, 검사, 전달할 수 있는 로컬 명령줄 워크스페이스입니다. |
 | [Univer Office for WorkBuddy](https://github.com/dream-num/workbuddy-univer-office) | MCP 미리 보기와 초안 검토를 지원하는 WorkBuddy용 로컬 오피스 통합입니다. 개발 프리뷰 버전입니다. |
@@ -274,12 +292,12 @@ API 호환성 기대치, experimental APIs, internal APIs, deprecation rules는 
 | --- | --- | --- |
 | **Sheets** | 워크북, 워크시트, 범위, 선택, 수식, 숫자 서식, 필터링, 정렬, 데이터 유효성 검사, 조건부 서식, 하이퍼링크, 댓글, 찾기/바꾸기, 노트, 테이블, drawing integration, 확장 가능한 UI 플러그인. | 실시간 협업, 편집 기록, import/export, printing, charts, pivot tables, sparklines, outlines, shapes, in-cell graphics, data connectors, server-side calculation, 향상된 formula 기능. |
 | **Docs** | 리치 문서 모델, 편집 UI, 목록, 하이퍼링크, drawing integration, 댓글, quick insert, 공유 문서 아키텍처. | 협업, import/export, printing, 향상된 tables/lists, columns, callouts, code blocks, quotes, shapes, remote comment resources. |
-| **Slides** | 프레젠테이션 데이터 모델과 UI 패키지. 현재 활발히 개발 중입니다. | Pro slide model/UI, slide import/export, chart/table model 및 UI plugins, 공유 shape editing infrastructure. |
+| **Slides** | 프레젠테이션 데이터 모델과 편집 UI 패키지. | Pro slide model/UI, slide import/export, chart/table model 및 UI plugins, 공유 shape editing infrastructure. |
 | **Bases** | Univer의 plugin, command, model 아키텍처 위에서 커스텀 structured-data 경험을 만들 수 있습니다. | Base database model, commands, formula integration, workbench UI, field editors, render-engine views. |
 | **Runtime** | 브라우저 앱, Node.js headless 사용, Web Worker/RPC 패턴, multi-instance 사용, 서버 지향 자동화. | Collaboration client/server packages, Node.js collaboration client, Pro server services, SSR, computing delegation, server-side calculation, changeset replay tooling. |
 | **Integrations** | React, Vue, Web Components, 프레임워크 템플릿, 테마, 로컬라이제이션, 커스텀 플러그인. | Pro presets, enterprise deployment packages. |
 
-Sheets는 현재 가장 성숙한 제품 영역입니다. Docs와 Slides는 Univer의 아키텍처를 공유하며 같은 SDK 안에서 계속 발전하고 있습니다.
+Sheets, Docs, Slides는 Univer의 공통 아키텍처를 기반으로 스프레드시트, 문서, 프레젠테이션 편집 기능을 제공하며, 일관된 플러그인 시스템, 명령 시스템, Facade API를 사용합니다.
 
 ## 🔓 Open Source와 Pro
 
@@ -294,7 +312,9 @@ Sheets는 현재 가장 성숙한 제품 영역입니다. Docs와 Slides는 Univ
 | **Bases** | 커스텀 data-centric products를 위한 확장 가능한 plugin architecture. | Base database core model, commands, mutations, formula integration, workbench UI, field editors, render-engine integration. |
 | **Server and runtime** | Node.js headless runtime, RPC/Web Worker patterns, server-oriented automation primitives. | Collaboration server, Node.js collaboration client, SSR services, computing delegation, server-side calculation, collaboration changeset replay tooling. |
 
-Pro 기능은 [Univer Pro guide](https://docs.univer.ai/guides/pro)에 문서화되어 있습니다. 여기서는 OSS 패키지의 범위를 명확히 하기 위해 의도적으로 분리했습니다.
+편집기 기능은 [Web SDK 문서](https://docs.univer.ai/guides/sheets)를 참고하세요. 백엔드 통합은 Server SDK의 [공동 편집](https://docs.univer.ai/server/collaboration/overview) 및 [파일 가져오기·내보내기](https://docs.univer.ai/server/import-export) 문서를 참고하세요.
+
+상용 라이선스 및 구매에 관해서는 [문의해 주세요](https://univer.ai/#contact). 애플리케이션에서 라이선스를 설정하려면 [라이선스 설정](https://docs.univer.ai/server/license)을 참고하세요.
 
 Boundary principles:
 
@@ -308,7 +328,7 @@ Boundary principles:
 - **Core SDK**: [`dream-num/univer`](https://github.com/dream-num/univer), 이 monorepo입니다.
 - **Presets**: 이 저장소의 [`presets/`](../../presets), 브라우저와 Node.js 앱을 위한 curated plugin collection입니다.
 - **AI agent skills**: [`dream-num/univer-sdk-skills`](https://github.com/dream-num/univer-sdk-skills), Univer 통합, Pro 기능, 플러그인 개발, Node 백엔드를 다루는 AI agent용 재사용 지침입니다. [AI Skills guide](https://docs.univer.ai/guides/skills)를 참고하세요.
-- **Documentation**: [docs.univer.ai](https://docs.univer.ai), Sheets, Docs, Slides, recipes, Pro guides를 포함합니다.
+- **Documentation**: [docs.univer.ai](https://docs.univer.ai), Web SDK, Server SDK, AI SDK 가이드와 API 레퍼런스를 포함합니다.
 - **Web SDK**: 브라우저와 Node.js에서 [임베드 가능한 편집기 및 헤드리스 처리](https://docs.univer.ai/guides/sheets)를 제공합니다.
 - **Server SDK**: [협업 및 파일 변환](https://docs.univer.ai/server)을 애플리케이션의 저장소, 인증, 권한 시스템과 통합합니다.
 - **AI SDK**: 오피스 콘텐츠를 검사, 편집, 검증하는 [에이전트 워크플로](https://docs.univer.ai/ai)를 구축합니다.

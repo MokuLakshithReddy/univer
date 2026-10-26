@@ -173,11 +173,13 @@ import {
     HideRowMenuItemFactory,
     HorizontalAlignMenuItemFactory,
     ItalicMenuItemFactory,
+    PASTE_RIBBON_MENU_ID,
     PASTE_SPECIAL_MENU_ID,
     PasteBesidesBorderMenuItemFactory,
     PasteColWidthMenuItemFactory,
     PasteFormatMenuItemFactory,
     PasteMenuItemFactory,
+    PasteRibbonMenuItemFactory,
     PasteSpacialMenuItemFactory,
     PasteValueMenuItemFactory,
     ResetBackgroundColorMenuItemFactory,
@@ -227,6 +229,33 @@ import { ZOOM_RATIO_MENU_ID, ZoomRatioMenuItemFactory } from './zoom.menu';
 
 export const menuSchema: MenuSchemaType = {
     [RibbonPosition.START]: {
+        [RibbonStartGroup.HISTORY]: {
+            [PASTE_RIBBON_MENU_ID]: {
+                order: 4,
+                gridLayout: { row: 1, column: 3, rowSpan: 2, showLabel: true },
+                menuItemFactory: PasteRibbonMenuItemFactory,
+                [SheetPasteCommand.name]: {
+                    order: 0,
+                    menuItemFactory: (accessor) => ({ ...PasteMenuItemFactory(accessor), icon: undefined }),
+                },
+                [SheetPasteValueCommand.id]: {
+                    order: 1,
+                    menuItemFactory: PasteValueMenuItemFactory,
+                },
+                [SheetPasteFormatCommand.id]: {
+                    order: 2,
+                    menuItemFactory: PasteFormatMenuItemFactory,
+                },
+                [SheetPasteColWidthCommand.id]: {
+                    order: 3,
+                    menuItemFactory: PasteColWidthMenuItemFactory,
+                },
+                [SheetPasteBesidesBorderCommand.id]: {
+                    order: 4,
+                    menuItemFactory: PasteBesidesBorderMenuItemFactory,
+                },
+            },
+        },
         [RibbonStartGroup.FORMAT]: {
             [SetRangeFontFamilyCommand.id]: {
                 order: 1,
@@ -357,20 +386,20 @@ export const menuSchema: MenuSchemaType = {
             },
             [ZOOM_RATIO_MENU_ID]: {
                 order: 1,
-                gridLayout: { row: 1, column: 2, width: 112 },
+                gridLayout: { row: 1, column: 2 },
                 menuItemFactory: ZoomRatioMenuItemFactory,
-            },
-            [ToggleFullscreenOperation.id]: {
-                order: 2,
-                gridLayout: { row: 2, column: 2, showLabel: true, width: 112 },
-                menuItemFactory: FullscreenMenuItemFactory,
             },
         },
         [RibbonViewGroup.VISIBILITY]: {
             [ToggleGridlinesCommand.id]: {
                 order: 0,
-                gridLayout: { row: 1, column: 1, showLabel: true },
+                gridLayout: { row: 1, column: 1 },
                 menuItemFactory: ToggleGridlinesMenuFactory,
+            },
+            [ToggleFullscreenOperation.id]: {
+                order: 1,
+                gridLayout: { row: 2, column: 1 },
+                menuItemFactory: FullscreenMenuItemFactory,
             },
         },
     },

@@ -14,22 +14,7 @@
  * limitations under the License.
  */
 
-import type { INumberUnit, IParagraphProperties, ITabStop, Nullable } from '@univerjs/core';
-import type {
-    IDocumentSkeletonColumn,
-    IDocumentSkeletonDivide,
-    IDocumentSkeletonDrawing,
-    IDocumentSkeletonGlyph,
-    IDocumentSkeletonLine,
-    IDocumentSkeletonPage,
-    IDocumentSkeletonSection,
-    IDocumentSkeletonTable,
-} from '../../../../../basics/i-document-skeleton-cached';
-import type { IParagraphConfig, IParagraphTableCache, ISectionBreakConfig } from '../../../../../basics/interfaces';
-import type {
-    IFloatObject,
-    ILayoutContext,
-} from '../../tools';
+import type { INumberUnit, IParagraphProperties, ITabStop, ITextStyle, Nullable } from '@univerjs/core';
 import {
     BooleanNumber,
     characterSpacingControlType,
@@ -47,6 +32,21 @@ import {
     TabStopAlignment,
     WrapStrategy,
 } from '@univerjs/core';
+import type {
+    IDocumentSkeletonColumn,
+    IDocumentSkeletonDivide,
+    IDocumentSkeletonDrawing,
+    IDocumentSkeletonGlyph,
+    IDocumentSkeletonLine,
+    IDocumentSkeletonPage,
+    IDocumentSkeletonSection,
+    IDocumentSkeletonTable,
+} from '../../../../../basics/i-document-skeleton-cached';
+import type { IParagraphConfig, IParagraphTableCache, ISectionBreakConfig } from '../../../../../basics/interfaces';
+import type {
+    IFloatObject,
+    ILayoutContext,
+} from '../../tools';
 import { cjk } from '../../../../../basics/cjk-regexp';
 import {
     DocumentSkeletonPageType,
@@ -55,7 +55,12 @@ import {
 } from '../../../../../basics/i-document-skeleton-cached';
 import { isCjkLeftAlignedPunctuation } from '../../../../../basics/tools';
 import { getDocsCustomBlockRenderViewport } from '../../../custom-block-render-viewport';
-import { getNominalFontLineHeight, isTraditionalDocumentCompatibility } from '../../../document-compatibility';
+import {
+    getDocumentCompatibilityPolicy,
+    getNominalFontLineHeight,
+    isTraditionalDocumentCompatibility,
+    shouldAllowImportedTableMarginOverflow,
+} from '../../../document-compatibility';
 import { BreakPointType } from '../../line-breaker/break';
 import {
     addGlyphToDivide,
@@ -249,7 +254,8 @@ export function layoutParagraph(
     isParagraphFirstShapedText: boolean,
     breakPointType = BreakPointType.Normal,
     renderBullet = isParagraphFirstShapedText,
-    startNewLine = false
+    startNewLine = false,
+    markerTextStyle?: Pick<ITextStyle, 'cl' | 'ul'>
 ) {
     paragraphConfig.documentCompatibilityPolicy ??= sectionBreakConfig.documentCompatibilityPolicy;
     if (isParagraphFirstShapedText || startNewLine) {
@@ -263,7 +269,10 @@ export function layoutParagraph(
             const { snapToGrid = BooleanNumber.TRUE } = paragraphStyle;
 
             const charSpaceApply = getCharSpaceApply(charSpace, defaultTabStop, gridType, snapToGrid);
-            const bulletGlyph = createSkeletonBulletGlyph(glyphGroup[0], bulletSkeleton, charSpaceApply, paragraphConfig.documentCompatibilityPolicy ?? sectionBreakConfig.documentCompatibilityPolicy);
+            const resolvedBulletSkeleton = markerTextStyle
+                ? { ...bulletSkeleton, ts: { ...markerTextStyle, ...bulletSkeleton.ts } }
+                : bulletSkeleton;
+            const bulletGlyph = createSkeletonBulletGlyph(glyphGroup[0], resolvedBulletSkeleton, charSpaceApply, paragraphConfig.documentCompatibilityPolicy ?? sectionBreakConfig.documentCompatibilityPolicy);
             const paragraphProperties = bulletSkeleton.paragraphProperties || {};
             const bulletParagraphStyle = {
                 ...paragraphProperties,
@@ -1477,6 +1486,11 @@ function _getParagraphLineMetrics(
     const startingSection = lastPage.type === DocumentSkeletonPageType.BODY && preLine == null
         ? ctx.viewModel.getChildren().find((section, index) => index > 0 && section.children[0]?.endIndex === paragraphIndex)
         : undefined;
+    const hasInlineTableBoundary = isParagraphFirstShapedText &&
+        paragraphConfig.skeTablesInParagraph?.find((item) => !item.hasPositioned)?.table.tableSource.textWrap === TableTextWrapType.NONE;
+    // Inline tables are attached to the following paragraph in the view model.
+    // Spacing on opposite sides of that table must not collapse together.
+    const spaceBeforeTable = hasInlineTableBoundary ? Math.max(0, preLine?.spaceBelowApply ?? 0) : 0;
     let { marginTop, spaceBelowApply } = isHiddenParagraph
         ? { marginTop: 0, spaceBelowApply: preLine?.spaceBelowApply ?? 0 }
         : __getParagraphSpace(
@@ -1485,10 +1499,14 @@ function _getParagraphLineMetrics(
             suppressCellAutoSpaceAbove ? undefined : spaceAbove,
             spaceBelow,
             isParagraphFirstShapedText,
-            preLine,
-            _shouldSuppressPageTopSpacing(lastPage, column, paragraphConfig, preLine, firstPageNumber, startingSection != null),
+            hasInlineTableBoundary ? undefined : preLine,
+            !hasInlineTableBoundary && _shouldSuppressPageTopSpacing(lastPage, column, paragraphConfig, preLine, firstPageNumber, startingSection != null),
             drawingMLLineHeight
         );
+
+    if (preLine) {
+        marginTop += sectionBreakConfig.lineGap ?? 0;
+    }
 
     if (startingSection && marginTop > 0 && isTraditionalDocumentCompatibility(paragraphConfig.documentCompatibilityPolicy)) {
         marginTop = _collapseSectionBeforeSpacing(ctx, startingSection.children[0].startIndex - 2, marginTop);
@@ -1544,6 +1562,7 @@ function _getParagraphLineMetrics(
         paddingBottom,
         contentHeight,
         marginTop,
+        spaceBeforeTable,
         spaceBelowApply,
         borderTopSpace,
         borderBottomSpace,
@@ -1721,6 +1740,7 @@ function _lineOperator(
         paddingBottom,
         contentHeight,
         marginTop,
+        spaceBeforeTable,
         spaceBelowApply,
         borderTopSpace,
         borderBottomSpace,
@@ -1746,8 +1766,8 @@ function _lineOperator(
     const lineTop = preLineHeight + preTop;
 
     const { pageWidth, headerId, footerId } = lastPage;
-    const headerPage = skeHeaders?.get(headerId)?.get(pageWidth);
-    const footerPage = skeFooters?.get(footerId)?.get(pageWidth);
+    const headerPage = skeHeaders?.get(headerId)?.get(lastPage.headerLayoutKey ?? pageWidth);
+    const footerPage = skeFooters?.get(footerId)?.get(lastPage.footerLayoutKey ?? pageWidth);
 
     let needOpenNewPageByTableLayout = false;
 
@@ -1765,7 +1785,7 @@ function _lineOperator(
     );
 
     if (skeTablesInParagraph != null && skeTablesInParagraph.length > 0) {
-        needOpenNewPageByTableLayout = _updateAndPositionTable(ctx, lineTop, lineHeight, lastPage, pages, column, section, skeTablesInParagraph, paragraphConfig.paragraphIndex, sectionBreakConfig, pDrawingAnchor?.get(paragraphIndex)?.top);
+        needOpenNewPageByTableLayout = _updateAndPositionTable(ctx, lineTop + spaceBeforeTable, lineHeight, lastPage, pages, column, section, skeTablesInParagraph, paragraphConfig.paragraphIndex, sectionBreakConfig, pDrawingAnchor?.get(paragraphIndex)?.top);
     }
 
     const hasSameParagraphTopBottomDrawingWithInline = hasInlineCustomBlock &&
@@ -1773,11 +1793,19 @@ function _lineOperator(
         [...paragraphNonInlineSkeDrawings.values()].some(
             (drawing) => drawing.drawingOrigin.layoutType === PositionedObjectLayoutType.WRAP_TOP_AND_BOTTOM
         );
+    // An inline table can move below a float without intersecting its old anchor line.
+    // Only the latest positioned slice on this page/column governs following flow.
+    let tableFlowTop = lineTop;
+    for (const item of skeTablesInParagraph ?? []) {
+        if (item.hasPositioned && item.table.parent === lastPage && item.table.tableSource.textWrap === TableTextWrapType.NONE) {
+            tableFlowTop = Math.max(lineTop, item.table.top + item.table.height - section.top);
+        }
+    }
     const calculatedLineTop = positionedCustomBlockOnly
-        ? lineTop
+        ? tableFlowTop
         : calculateLineTopByDrawings(
             lineHeight,
-            lineTop,
+            tableFlowTop,
             lastPage,
             headerPage,
             footerPage,
@@ -1926,6 +1954,10 @@ function _lineOperator(
     // A leading page break is not the paragraph's content anchor on the destination page.
     if (!isStandalonePageBoundary) {
         createAndUpdateBlockAnchor(paragraphIndex, newLine, blockAnchorTop, pDrawingAnchor);
+        const paragraphDrawingAnchor = pDrawingAnchor?.get(paragraphIndex);
+        if (paragraphDrawingAnchor) {
+            paragraphDrawingAnchor.left = paragraphAnchorLeft;
+        }
     }
     if (deferredTopBottomAnchorDrawings.length > 0) {
         __updateAndPositionDrawings(ctx, newLineTop, lineHeight, column, deferredTopBottomAnchorDrawings, paragraphConfig.paragraphIndex, isParagraphFirstShapedText, blockAnchorTop, paragraphAnchorLeft, false, true);
@@ -1979,6 +2011,12 @@ function __updateAndPositionDrawings(
 
     if (drawings == null || drawings.size === 0) {
         return;
+    }
+
+    for (const drawing of drawings.values()) {
+        if (drawing.drawingOrigin.docTransform.positionV.relativeFrom === ObjectRelativeFromV.LINE) {
+            drawing.blockAnchorLeft = ctx.skeletonResourceReference?.drawingAnchor?.get(column.parent!.parent!.segmentId)?.get(paragraphIndex)?.left ?? drawing.blockAnchorLeft;
+        }
     }
 
     const floatObjects: IFloatObject[] = [...drawings.values()]
@@ -2202,7 +2240,13 @@ function _updateAndPositionTable(
         switch (tableSource.textWrap) {
             case TableTextWrapType.NONE: {
                 table.top = section.top + lineTop;
-                table.left = column.left + getTableLeft(column.width, table.width, tableSource.align, tableSource.indent);
+                table.left = column.left + getTableLeft(
+                    column.width,
+                    table.width,
+                    tableSource.align,
+                    tableSource.indent,
+                    shouldAllowImportedTableMarginOverflow(sectionBreakConfig.documentCompatibilityPolicy ?? getDocumentCompatibilityPolicy(), tableSource)
+                );
                 __avoidFlowAffectingDrawingsForTable(table, page, column);
                 __avoidNonOverlappingFloatingTables(table, page);
                 break;
@@ -2958,7 +3002,9 @@ export function updateInlineDrawingPosition(
     unitId = '',
     blockAnchorTop?: number,
     paragraphNonInlineSkeDrawings?: Map<string, IDocumentSkeletonDrawing>,
-    documentCompatibilityPolicy?: IParagraphConfig['documentCompatibilityPolicy']
+    documentCompatibilityPolicy?: IParagraphConfig['documentCompatibilityPolicy'],
+    blockAnchorLeft = 0,
+    normalizeTraditionalColumnAnchor = false
 ) {
     const column = line.parent;
     const section = column?.parent;
@@ -3070,6 +3116,9 @@ export function updateInlineDrawingPosition(
                 drawing.lineTop = lineTop;
                 drawing.columnLeft = column.left;
                 drawing.blockAnchorTop = blockAnchorTop == null ? lineTop : sectionTop + blockAnchorTop;
+                drawing.blockAnchorLeft = blockAnchorLeft;
+                drawing.normalizeTraditionalColumnAnchor = normalizeTraditionalColumnAnchor;
+                drawing.pageAnchorLeft = normalizeTraditionalColumnAnchor ? page.marginLeft : 0;
                 drawing.lineHeight = line.lineHeight;
 
                 drawings.set(drawing.drawingId, drawing);
@@ -3183,6 +3232,10 @@ function __getDrawingPosition(
             : undefined;
         drawing.initialState = true;
         drawing.columnLeft = column.left;
+        drawing.blockAnchorLeft = blockAnchorLeft;
+        drawing.normalizeTraditionalColumnAnchor = normalizeTraditionalColumnAnchor &&
+            ctx.dataModel.documentStyle.documentFlavor === DocumentFlavor.TRADITIONAL;
+        drawing.pageAnchorLeft = ctx.dataModel.documentStyle.documentFlavor === DocumentFlavor.TRADITIONAL ? page.marginLeft : 0;
         drawing.lineTop = absoluteLineTop;
         drawing.lineHeight = lineHeight;
         drawing.isPageBreak = isPageBreak;

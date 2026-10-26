@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import type { IAccessor, IColorStyle, Nullable, Workbook } from '@univerjs/core';
+import type { IAccessor, IColorStyle, IStyleData, Nullable, Workbook } from '@univerjs/core';
 import type { IMenuButtonItem, IMenuSelectorItem } from '@univerjs/ui';
-import type { LocaleKey } from '../locale/types';
 import {
     BooleanNumber,
     composeStyles,
@@ -83,6 +82,7 @@ import {
     MenuItemType,
 } from '@univerjs/ui';
 import { combineLatest, combineLatestWith, map, Observable, startWith } from 'rxjs';
+import type { LocaleKey } from '../locale/types';
 import {
     SheetCopyCommand,
     SheetCutCommand,
@@ -109,7 +109,7 @@ import {
 import { SetWorksheetColAutoWidthCommand } from '../commands/commands/set-worksheet-auto-col-width.command';
 import { ISheetClipboardService } from '../services/clipboard/clipboard.service';
 import { FormatPainterStatus, IFormatPainterService } from '../services/format-painter/format-painter.service';
-import { MENU_ITEM_INPUT_COMPONENT } from '../views/menu-item-input/index';
+import { MENU_ITEM_INPUT_COMPONENT } from '../views/menu-item-input/interface';
 import { deriveStateFromActiveSheet$, getCurrentRangeDisable$, getObservableWithExclusiveRange$ } from './menu-util';
 import { getFontStyleAtCursor } from './utils';
 
@@ -798,7 +798,7 @@ export function WrapTextMenuItemFactory(accessor: IAccessor): IMenuSelectorItem<
         value$: deriveStateFromActiveSheet$<WrapStrategy>(univerInstanceService, defaultValue, ({ worksheet }) => new Observable((subscriber) => {
             const disposable = accessor.get(ICommandService).onCommandExecuted((c) => {
                 const id = c.id;
-                if (id !== SetTextWrapCommand.id && id !== SetSelectionsOperation.id && id !== SetWorksheetActiveOperation.id) {
+                if (id !== SetRangeValuesMutation.id && id !== SetSelectionsOperation.id && id !== SetWorksheetActiveOperation.id) {
                     return;
                 }
 
@@ -841,6 +841,20 @@ export function ShrinkToFitMenuItemFactory(accessor: IAccessor): IMenuButtonItem
     const commandService = accessor.get(ICommandService);
     const univerInstanceService = accessor.get(IUniverInstanceService);
     const selectionManagerService = accessor.get(SheetsSelectionsService);
+    const style$ = deriveStateFromActiveSheet$<IStyleData>(univerInstanceService, {}, ({ worksheet }) => new Observable((subscriber) => {
+        const update = () => {
+            const primary = selectionManagerService.getCurrentLastSelection()?.primary;
+            subscriber.next(primary != null ? worksheet.getComposedCellStyle(primary.startRow, primary.startColumn) ?? {} : {});
+        };
+        const disposable = commandService.onCommandExecuted((command) => {
+            if ([SetRangeValuesMutation.id, SetSelectionsOperation.id, SetWorksheetActiveOperation.id].includes(command.id)) {
+                update();
+            }
+        });
+
+        update();
+        return disposable.dispose;
+    }));
 
     return {
         id: SetShrinkToFitCommand.id,
@@ -848,25 +862,15 @@ export function ShrinkToFitMenuItemFactory(accessor: IAccessor): IMenuButtonItem
         icon: 'ShrinkToFitIcon',
         title: 'sheets-ui.toolbar.shrinkToFit',
         tooltip: 'sheets-ui.toolbar.shrinkToFit',
-        activated$: deriveStateFromActiveSheet$(univerInstanceService, false, ({ worksheet }) => new Observable<boolean>((subscriber) => {
-            const update = () => {
-                const primary = selectionManagerService.getCurrentLastSelection()?.primary;
-                subscriber.next(primary != null && worksheet.getComposedCellStyle(primary.startRow, primary.startColumn)?.stf === BooleanNumber.TRUE);
-            };
-            const disposable = commandService.onCommandExecuted((command) => {
-                if ([SetRangeValuesMutation.id, SetSelectionsOperation.id, SetWorksheetActiveOperation.id].includes(command.id)) {
-                    update();
-                }
-            });
-
-            update();
-            return disposable.dispose;
-        })),
-        disabled$: getCurrentRangeDisable$(accessor, {
-            workbookTypes: [WorkbookEditablePermission],
-            worksheetTypes: [WorksheetEditPermission, WorksheetSetCellStylePermission],
-            rangeTypes: [RangeProtectionPermissionEditPoint],
-        }),
+        activated$: style$.pipe(map((style) => style.stf === BooleanNumber.TRUE && style.tb !== WrapStrategy.WRAP)),
+        disabled$: combineLatest([
+            getCurrentRangeDisable$(accessor, {
+                workbookTypes: [WorkbookEditablePermission],
+                worksheetTypes: [WorksheetEditPermission, WorksheetSetCellStylePermission],
+                rangeTypes: [RangeProtectionPermissionEditPoint],
+            }),
+            style$,
+        ]).pipe(map(([disabled, style]) => disabled || style.tb === WrapStrategy.WRAP)),
         hidden$: getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_SHEET),
     };
 }
@@ -1055,6 +1059,20 @@ export function PasteSpacialMenuItemFactory(accessor: IAccessor): IMenuSelectorI
         icon: 'PasteSpecialDoubleIcon',
         title: 'sheets-ui.rightClick.pasteSpecial',
         hidden$: getObservableWithExclusiveRange$(accessor, getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_SHEET)),
+    };
+}
+
+export const PASTE_RIBBON_MENU_ID = 'sheet.menu.paste';
+export function PasteRibbonMenuItemFactory(accessor: IAccessor): IMenuSelectorItem<LocaleKey> {
+    return {
+        ...PasteSpacialMenuItemFactory(accessor),
+        id: PASTE_RIBBON_MENU_ID,
+        icon: 'DocPasteOptionsIcon',
+        title: 'sheets-ui.rightClick.paste',
+        hidden$: combineLatest([
+            getObservableWithExclusiveRange$(accessor, getMenuHiddenObservable(accessor, UniverInstanceType.UNIVER_SHEET)),
+            accessor.get(IContextService).subscribeContextValue$(FOCUSING_SHAPE_TEXT_EDITOR).pipe(startWith(false)),
+        ]).pipe(map(([hidden, editing]) => hidden || editing)),
     };
 }
 
@@ -1279,7 +1297,7 @@ export function SetRowHeightMenuItemFactory(accessor: IAccessor): IMenuButtonIte
     const univerInstanceService = accessor.get(IUniverInstanceService);
     const selectionManagerService = accessor.get(SheetsSelectionsService);
 
-    const min = 2;
+    const min = 0;
 
     return {
         id: SetRowHeightCommand.id,
@@ -1324,7 +1342,7 @@ export function SetColWidthMenuItemFactory(accessor: IAccessor): IMenuButtonItem
     const univerInstanceService = accessor.get(IUniverInstanceService);
     const selectionManagerService = accessor.get(SheetsSelectionsService);
 
-    const min = 2;
+    const min = 0;
 
     return {
         id: SetColWidthCommand.id,

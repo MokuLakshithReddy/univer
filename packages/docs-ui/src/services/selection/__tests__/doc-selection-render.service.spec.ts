@@ -22,6 +22,7 @@ import {
     DataStreamTreeTokenType,
     DisposableCollection,
     DOC_RANGE_TYPE,
+    DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY,
     DOCS_NORMAL_EDITOR_UNIT_ID_KEY,
     DocumentDataModel,
     DocumentFlavor,
@@ -30,8 +31,14 @@ import {
     UniverInstanceType,
 } from '@univerjs/core';
 import { DocLayoutExecutorService, DocSelectionManagerService, DocSkeletonManagerService } from '@univerjs/docs';
-import { DeviceType, GlyphType, NORMAL_TEXT_SELECTION_PLUGIN_STYLE, PointerInput, RenderUnit } from '@univerjs/engine-render';
-import { ILayoutService } from '@univerjs/ui';
+import {
+    DeviceType,
+    GlyphType,
+    NORMAL_TEXT_SELECTION_PLUGIN_STYLE,
+    PointerInput,
+    RenderUnit,
+} from '@univerjs/engine-render';
+import { DesktopLayoutService, ILayoutService } from '@univerjs/ui';
 import { Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -734,8 +741,30 @@ describe('doc selection render service internals', () => {
         expect(service._rangeList).toEqual([cursorRange]);
     });
 
-    it('keeps the rendered caret when its replacement page is not resolved yet', () => {
-        const { service } = createService();
+    it('keeps the rendered caret when its replacement page is not resolved yet', ({ onTestFinished }) => {
+        const univer = new Univer();
+        const injector = univer.__getInjector();
+        injector.add([DocSelectionManagerService]);
+        injector.add([DocLayoutExecutorService]);
+        injector.add([ILayoutService, { useClass: DesktopLayoutService }]);
+        const doc = univer.createUnit(UniverInstanceType.UNIVER_DOC, {
+            id: 'unresolved-caret',
+            body: { dataStream: 'Caret\r\n', paragraphs: [{ paragraphId: 'p', startIndex: 5 }] },
+        });
+        const render = injector.createInstance(RenderUnit, {
+            engine: {} as never,
+            scene: { getViewports: () => [], getEngine: () => null, enableObjectsEvent: () => {} } as never,
+            isMainScene: true,
+            unit: doc,
+        });
+        render.addRenderDependencies([[DocSkeletonManagerService], [DocSelectionRenderService]]);
+        onTestFinished(() => {
+            render.dispose();
+            univer.dispose();
+        });
+        const subject = render.with(DocSelectionRenderService);
+        const service = subject as unknown as IServiceHarness;
+        const publish = vi.spyOn(service._textSelectionInner$, 'next');
         const currentCaret = createTextRange({
             collapsed: true,
             startOffset: 34,
@@ -757,7 +786,7 @@ describe('doc selection render service internals', () => {
         expect(service._rangeList).toEqual([currentCaret]);
         expect(currentCaret.dispose).not.toHaveBeenCalled();
         expect(unresolvedCaret.dispose).toHaveBeenCalledTimes(1);
-        expect(service._textSelectionInner$.next).not.toHaveBeenCalled();
+        expect(publish).not.toHaveBeenCalled();
     });
 
     it('deactivates structural carets when document ranges contain a visible selection', () => {
@@ -939,15 +968,16 @@ describe('doc selection render service internals', () => {
 });
 
 describe('DocSelectionRenderService', () => {
-    it.each(['', 'note'])('uses the logical caret in segment "%s" while replacement layout is pending', (segmentId) => {
-        TestLayoutService.reset();
+    it.each(['', 'note', 'header', 'footer'])('uses the logical caret in segment "%s" while replacement layout is pending', (segmentId) => {
         const univer = new Univer();
         const injector = univer.__getInjector();
         injector.add([DocSelectionManagerService]);
         injector.add([DocLayoutExecutorService]);
-        injector.add([ILayoutService, { useClass: TestLayoutService as never }]);
+        injector.add([ILayoutService, { useClass: DesktopLayoutService }]);
         const doc = univer.createUnit(UniverInstanceType.UNIVER_DOC, {
             id: 'pending-input',
+            headers: { header: { headerId: 'header', body: { dataStream: 'Header\r\n', paragraphs: [{ paragraphId: 'hp', startIndex: 6 }] } } },
+            footers: { footer: { footerId: 'footer', body: { dataStream: 'Footer\r\n', paragraphs: [{ paragraphId: 'fp', startIndex: 6 }] } } },
             documentStyle: { documentFlavor: DocumentFlavor.TRADITIONAL },
             body: { dataStream: 'Body\r\n', paragraphs: [{ paragraphId: 'p', startIndex: 4 }] },
             notes: { note: { type: 'footnote' as const, noteId: 'note', body: {
@@ -964,6 +994,7 @@ describe('DocSelectionRenderService', () => {
         render.addRenderDependencies([[DocSkeletonManagerService], [DocSelectionRenderService]]);
         try {
             const service = render.with(DocSelectionRenderService);
+            service.setSegment(segmentId);
             render.with(DocSkeletonManagerService).getSkeleton().beginExternalLayout({ reason: 'edit' });
             const manager = injector.get(DocSelectionManagerService);
             manager.__TEST_ONLY_setCurrentSelection({ unitId: 'pending-input', subUnitId: 'pending-input' });
@@ -1431,6 +1462,68 @@ describe('DocSelectionRenderService', () => {
         expect(document.activeElement).toBe(input);
     });
 
+    it.each([
+        { geometry: false, retainedEditor: false },
+        { geometry: false, retainedEditor: true },
+        { geometry: true, retainedEditor: false },
+        { geometry: true, retainedEditor: true },
+    ])('preserves external frame focus during passive selection refresh: %j', ({ geometry, retainedEditor }) => {
+        const frame = document.createElement('iframe');
+        document.body.appendChild(frame);
+        const ownerDocument = frame.contentDocument!;
+        const { input, renderUnit, service, univer } = createRealSelectionRenderService({
+            scene: {
+                getViewports: () => geometry ? [{ getAbsoluteVector: () => ({ x: 30, y: 40 }) }] : [],
+                getEngine: () => ({ name: 'engine' }),
+            },
+        });
+        cleanup.push(() => renderUnit.dispose(), () => univer.dispose());
+        ownerDocument.body.appendChild(TestLayoutService.root);
+        if (geometry) {
+            (service as unknown as { _rangeList: TextRange[] })._rangeList = [{
+                isActive: () => true,
+                getAnchor: () => ({ left: 12, top: 20, visible: true }),
+                dispose: vi.fn(),
+            } as never];
+        }
+        if (retainedEditor) {
+            input.focus();
+        }
+        const peerInput = document.createElement('div');
+        peerInput.tabIndex = -1;
+        document.body.appendChild(peerInput);
+        peerInput.focus();
+        vi.spyOn(ownerDocument, 'hasFocus').mockReturnValue(false);
+        const focus = vi.spyOn(input, 'focus');
+
+        expect(service.canFocusing).toBe(false);
+        service.sync();
+        if (geometry) {
+            expect(service.selectionContainer.style.left).toBe('30px');
+            expect(service.selectionContainer.style.top).toBe('40px');
+        }
+        service.activate(12, 34);
+
+        expect(document.activeElement).toBe(peerInput);
+        expect(focus).not.toHaveBeenCalled();
+        expect(service.selectionContainer.style.left).toBe('12px');
+        expect(service.selectionContainer.style.top).toBe('34px');
+
+        service.activate(12, 34, true);
+        expect(focus).toHaveBeenCalledOnce();
+        expect(ownerDocument.activeElement).toBe(input);
+    });
+
+    it('retains top-level focus recovery when the browser window is inactive', () => {
+        const { input, renderUnit, service, univer } = createRealSelectionRenderService();
+        cleanup.push(() => renderUnit.dispose(), () => univer.dispose());
+        vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+
+        service.sync();
+
+        expect(document.activeElement).toBe(input);
+    });
+
     it('publishes hidden editor input, paste, focus, and blur events with the typed content', () => {
         const { input, renderUnit, service, univer } = createRealSelectionRenderService();
         cleanup.push(() => renderUnit.dispose(), () => univer.dispose());
@@ -1522,6 +1615,41 @@ describe('DocSelectionRenderService', () => {
         input.dispatchEvent(new InputEvent('input', { bubbles: true, data: 'A', inputType: 'insertText' }));
 
         expect(received).toEqual([{ start: 1, end: 3 }]);
+    });
+
+    it.each([
+        { unitId: DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, offset: 0, expected: 0 },
+        { unitId: DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, offset: 1, expected: undefined },
+        { unitId: 'selection-render-doc', offset: 0, expected: undefined },
+    ])('uses only a valid empty formula-bar caret before geometry is ready ($unitId, $offset)', ({ unitId, offset, expected }) => {
+        const { input, renderUnit, service, univer } = createRealSelectionRenderService({
+            documentData: {
+                id: unitId,
+                body: { dataStream: '\r\n', paragraphs: [{ startIndex: 0, paragraphId: 'empty-editor-paragraph' }] },
+                documentStyle: {},
+            },
+        });
+        cleanup.push(() => renderUnit.dispose(), () => univer.dispose());
+        const manager = univer.__getInjector().get(DocSelectionManagerService);
+        manager.replaceSelectionInfoWithoutRefresh({
+            textRanges: [{ startOffset: offset, endOffset: offset, collapsed: true, isActive: true }],
+            rectRanges: [],
+            segmentId: '',
+            segmentPage: -1,
+            style: NORMAL_TEXT_SELECTION_PLUGIN_STYLE,
+            isEditing: true,
+        }, { unitId, subUnitId: unitId });
+        const received: Array<{ content?: string; offset?: number }> = [];
+        const subscription = service.onInput$.subscribe((config) => received.push({
+            content: config.content,
+            offset: config.activeRange?.startOffset,
+        }));
+        cleanup.push(() => subscription.unsubscribe());
+
+        input.textContent = '=';
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, data: '=', inputType: 'insertText' }));
+
+        expect(received).toEqual([{ content: '=', offset: expected }]);
     });
 
     it.each([
@@ -1841,7 +1969,13 @@ describe('DocSelectionRenderService', () => {
         ]);
     });
 
-    it('selects the current word on double click and the paragraph on triple click', () => {
+    it.each([
+        { unitId: 'word-selection-doc', glyphIndex: 7, word: '6:11' },
+        { unitId: 'word-selection-doc', glyphIndex: 11, word: null },
+        { unitId: DOCS_NORMAL_EDITOR_UNIT_ID_KEY, glyphIndex: 0, word: '0:5' },
+        { unitId: DOCS_NORMAL_EDITOR_UNIT_ID_KEY, glyphIndex: 11, word: '6:11' },
+        { unitId: DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, glyphIndex: 11, word: '6:11' },
+    ])('selects the nearest sheet-editor word on double click ($unitId, glyph=$glyphIndex)', ({ unitId, glyphIndex, word }) => {
         const viewport = {
             transformVector2SceneCoord: () => ({ x: 8, y: 12 }),
             getAbsoluteVector: () => ({ x: 16, y: 24 }),
@@ -1864,46 +1998,42 @@ describe('DocSelectionRenderService', () => {
                 pageMarginTop: 0,
             }),
         };
-        const { renderUnit, service, univer } = createRealSelectionRenderService({ mainComponent, scene });
+        const { renderUnit, service, univer } = createRealSelectionRenderService({
+            mainComponent,
+            scene,
+            documentData: {
+                id: unitId,
+                body: { dataStream: 'Hello world\r\n', paragraphs: [{ startIndex: 11, paragraphId: 'word-selection-paragraph' }] },
+                documentStyle: {},
+            },
+        });
         cleanup.push(() => renderUnit.dispose(), () => univer.dispose());
         const column = { lines: [] as unknown[] };
-        const line = { paragraphIndex: 5, st: 0, parent: column, divides: [] as unknown[] };
+        const line = { paragraphIndex: 11, st: 0, parent: column, divides: [] as unknown[] };
         const divide = { parent: line, glyphGroup: [] as Array<{ content: string; count: number; glyphType: GlyphType; parent?: unknown }> };
         const glyphs: Array<{ content: string; count: number; glyphType: GlyphType; parent?: unknown }> = [];
-        for (const content of ['H', 'e', 'l', 'l', 'o']) {
+        for (const content of 'Hello world\r') {
             glyphs.push({ content, count: 1, glyphType: GlyphType.WORD, parent: divide });
         }
         divide.glyphGroup = glyphs;
         line.divides = [divide];
         column.lines = [line];
-        (service as unknown as { _findNodeByCoord: () => unknown })._findNodeByCoord = () => ({ node: glyphs[1], ratioX: 0.4, segmentPage: -1 });
-        const wordRange = {
-            ...createTextRange({ isActive: vi.fn(() => true) }),
-            startOffset: 0,
-            endOffset: 5,
-            collapsed: false,
-            rangeType: DOC_RANGE_TYPE.TEXT,
-            segmentId: '',
-            segmentPage: -1,
-            direction: 'forward',
-            startNodePosition: null,
-            endNodePosition: null,
-        };
-        const paragraphRange = {
-            ...createTextRange({ isActive: vi.fn(() => true) }),
-            startOffset: 0,
-            endOffset: 5,
-            collapsed: false,
-            rangeType: DOC_RANGE_TYPE.TEXT,
-            segmentId: '',
-            segmentPage: -1,
-            direction: 'forward',
-            startNodePosition: null,
-            endNodePosition: null,
-        };
-        getRangeListFromCharIndexMock
-            .mockReturnValueOnce({ textRanges: [wordRange], rectRanges: [] })
-            .mockReturnValueOnce({ textRanges: [paragraphRange], rectRanges: [] });
+        (service as unknown as { _findNodeByCoord: () => unknown })._findNodeByCoord = () => ({ node: glyphs[glyphIndex], ratioX: 0.4, segmentPage: -1 });
+        getRangeListFromCharIndexMock.mockImplementation((startOffset, endOffset) => ({
+            textRanges: [{
+                ...createTextRange({ isActive: vi.fn(() => true) }),
+                startOffset,
+                endOffset,
+                collapsed: startOffset === endOffset,
+                rangeType: DOC_RANGE_TYPE.TEXT,
+                segmentId: '',
+                segmentPage: -1,
+                direction: 'forward',
+                startNodePosition: null,
+                endNodePosition: null,
+            }],
+            rectRanges: [],
+        }));
         const selections: string[] = [];
         const subscription = service.textSelectionInner$.subscribe((selection) => {
             if (!selection) {
@@ -1918,7 +2048,7 @@ describe('DocSelectionRenderService', () => {
         service.__handleDblClick({ offsetX: 10, offsetY: 12 } as never);
         service.__handleTripleClick({ offsetX: 10, offsetY: 12 } as never);
 
-        expect(selections).toEqual(['0:5', '0:5']);
+        expect(selections).toEqual(word ? [word, '0:11'] : ['0:11']);
     });
 
     it('moves the hidden editor to the active visible selection when syncing canvas selection to DOM input', () => {

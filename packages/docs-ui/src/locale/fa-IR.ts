@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'چسباندن ویژه',
             title: 'گزینه‌های چسباندن',
             source: 'حفظ قالب‌بندی مبدأ',
             destination: 'تطبیق با قالب‌بندی مقصد',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'در حال بازیابی صفحه‌آرایی سند…',
         },
         toolbar: {
+            zoom: 'بزرگ‌نمایی',
+            fullscreen: 'تمام‌صفحه',
             font: 'فونت',
             fontSize: 'اندازه فونت',
             bold: 'پررنگ',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'حذف جدول',
         },
         headerFooter: {
+            navigation: 'پیمایش',
+            options: 'گزینه‌ها',
+            position: 'موقعیت',
+            refreshFields: 'به‌روزرسانی فیلدها',
+            pageNumber: 'شماره صفحه',
+            currentPage: 'صفحه فعلی',
+            totalPages: 'تعداد کل صفحات',
+            dateTime: 'تاریخ و زمان',
+            updateAutomatically: 'به‌روزرسانی خودکار',
+            insertFailed: 'سند تغییر کرده یا قابل ویرایش نیست. این پنجره را ببندید و دوباره تلاش کنید.',
+            goToHeader: 'رفتن به سرصفحه',
+            goToFooter: 'رفتن به پاصفحه',
+
             linkToPrevious: 'پیوند به قبلی',
             header: 'هدر',
             footer: 'فوتر',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'کاهش تورفتگی',
             defaultTextColor: 'رنگ پیش‌فرض متن',
             noBackground: 'بدون پس‌زمینه',
+        },
+        heading: {
+            collapse: 'جمع کردن',
+            expand: 'باز کردن',
         },
         'page-settings': {
             'document-setting': 'تنظیمات سند',

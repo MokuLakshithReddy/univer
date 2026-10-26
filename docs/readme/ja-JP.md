@@ -4,7 +4,7 @@
 
 **AI エージェントのための Office Harness**
 
-スプレッドシート · ドキュメント · プレゼンテーション · Bases · Boards · PDF（近日公開）
+スプレッドシート · ドキュメント · プレゼンテーション · Bases · Boards · PDF
 
 高性能で自由にカスタマイズできる Office SDK
 
@@ -50,13 +50,31 @@ Univer は単なるスプレッドシートファイルビューアではあり�
 
 [Univer の製品群](https://univer.ai/)では、オフィスツールがストレージと計算のランタイムを共有します。異なるツールのコンテンツを自由に組み合わせて埋め込み、参照元の変更に合わせて関連データや参照を更新できます。人と AI エージェントは同じファイルで共同作業できます。製品の対応範囲は[機能一覧](https://univer.ai/capabilities)、このリポジトリの範囲は [Open Source と Pro](#-open-source-と-pro) を参照してください。
 
+### Univer Office SDK でコラボレーションツールを構築
+
+[![Univer Office SDK でコラボレーションツールを構築](https://i.ytimg.com/vi/1p-SMEiK6Kg/maxresdefault.jpg)](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
+[デモを見る](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
 ## Univer Office SDK で構築されたプロジェクト
+
+### 注目の事例：Univer Workspace
+
+[Univer Workspace](https://github.com/dream-num/univer-workspace) は Univer Office SDK を基盤に構築された、セルフホスト可能なオープンソースのワークスペースです。人と AI エージェントがオフィスコンテンツを作成し、共同作業やレビューを行えます。開発者は完全な実装を参考にして SDK の組み込み方を学び、独自のプロダクトを構築できます。
+
+[![連携するスプレッドシートと並んで表示された Workspace のミニアプリ。指標、グラフ、コントロールはセルに紐付いています](../img/workspace-mini-app.png)](https://github.com/dream-num/univer-workspace)
+
+- エージェントは、意思決定ダッシュボード、インタラクティブなレポート、業務ダッシュボードなど、スプレッドシートを基盤とするミニアプリを生成できます。
+- Web ページ上の指標、グラフ、コントロールはセルに紐付き、データの読み取り、書き込み、共同更新に対応します。
+
+[Univer Workspace を見る](https://github.com/dream-num/univer-workspace)
+
+### その他の事例
 
 以下のオープンソースプロジェクトは Univer Office SDK を基盤に構築されています。
 
 | プロジェクト | 説明 |
 | --- | --- |
-| [Univer Workspace](https://github.com/dream-num/univer-workspace) | 人と AI エージェントのためのオフィスワークスペース。共同編集とエージェントによる変更のレビューに対応します。 |
 | [Univer Office for DeepSeek Harness](https://github.com/dream-num/dsh-univer-office) | DeepSeek Harness 向けオフィスプラグイン。関連付けられたコンテンツ、検証、エージェントの共同作業用の独立した Worktree を提供します。 |
 | [Univer CLI](https://github.com/dream-num/univer-cli) | エージェントがオフィスコンテンツを作成、編集、検査、納品するためのローカルのコマンドラインワークスペース。 |
 | [Univer Office for WorkBuddy](https://github.com/dream-num/workbuddy-univer-office) | MCP プレビューと下書きレビューに対応する、WorkBuddy 向けローカルのオフィス統合。開発プレビュー版です。 |
@@ -274,12 +292,12 @@ API 互換性、experimental API、internal API、deprecation rules について
 | --- | --- | --- |
 | **Sheets** | ワークブック、ワークシート、範囲、選択、数式、数値書式、フィルター、ソート、データ検証、条件付き書式、ハイパーリンク、コメント、検索と置換、ノート、テーブル、描画連携、拡張可能な UI プラグイン。 | リアルタイム共同編集、編集履歴、インポート/エクスポート、印刷、チャート、ピボットテーブル、スパークライン、アウトライン、図形、セル内グラフィックス、データコネクタ、サーバーサイド計算、強化された数式機能。 |
 | **Docs** | リッチドキュメントモデル、編集 UI、リスト、ハイパーリンク、描画連携、コメント、クイック挿入、共有ドキュメントアーキテクチャ。 | 共同編集、インポート/エクスポート、印刷、強化されたテーブルとリスト、段組み、コールアウト、コードブロック、引用ブロック、図形、リモートコメントリソース。 |
-| **Slides** | プレゼンテーションデータモデルと UI パッケージ。現在も活発に開発中です。 | Pro スライドモデルと UI、スライドのインポート/エクスポート、チャートとテーブルのモデル/UI プラグイン、共有の図形編集基盤。 |
+| **Slides** | プレゼンテーションデータモデルと編集 UI パッケージ。 | Pro スライドモデルと UI、スライドのインポート/エクスポート、チャートとテーブルのモデル/UI プラグイン、共有の図形編集基盤。 |
 | **Bases** | Univer のプラグイン、コマンド、モデルのアーキテクチャ上に、カスタムの構造化データ体験を構築できます。 | Base データベースモデル、コマンド、数式連携、ワークベンチ UI、フィールドエディタ、レンダリングエンジンビュー。 |
 | **Runtime** | ブラウザアプリ、Node.js ヘッドレス利用、Web Worker/RPC パターン、複数インスタンス、サーバー向け自動化。 | 共同編集クライアント/サーバーパッケージ、Node.js 共同編集クライアント、Pro サーバーサービス、SSR、計算委譲、サーバーサイド計算、changeset replay ツール。 |
 | **Integrations** | React、Vue、Web Components、フレームワークテンプレート、テーマ、ローカライズ、カスタムプラグイン。 | Pro presets とエンタープライズデプロイパッケージ。 |
 
-現在もっとも成熟しているプロダクト面は Sheets です。Docs と Slides も Univer のアーキテクチャを共有し、同じ SDK の中で継続的に進化しています。
+Sheets、Docs、Slides は Univer の共通アーキテクチャ上でスプレッドシート、ドキュメント、プレゼンテーションの編集機能を提供し、一貫したプラグインシステム、コマンドシステム、Facade API を使用します。
 
 ## 🔓 Open Source と Pro
 
@@ -294,7 +312,9 @@ API 互換性、experimental API、internal API、deprecation rules について
 | **Bases** | カスタムのデータ中心プロダクト向けの拡張可能なプラグインアーキテクチャ。 | Base データベースコアモデル、コマンド、ミューテーション、数式連携、ワークベンチ UI、フィールドエディタ、レンダリングエンジン連携。 |
 | **Server and runtime** | Node.js ヘッドレスランタイム、RPC/Web Worker パターン、サーバー向け自動化のプリミティブ。 | 共同編集サーバー、Node.js 共同編集クライアント、SSR サービス、計算委譲、サーバーサイド計算、共同編集 changeset replay ツール。 |
 
-Pro 機能は [Univer Pro guide](https://docs.univer.ai/guides/pro) に記載されています。ここでは OSS パッケージの範囲を明確にするため、意図的に分けて説明しています。
+エディターの機能については [Web SDK ドキュメント](https://docs.univer.ai/guides/sheets)をご覧ください。バックエンドの統合については、Server SDK の[共同編集](https://docs.univer.ai/server/collaboration/overview)と[ファイルのインポート・エクスポート](https://docs.univer.ai/server/import-export)の章をご覧ください。
+
+商用ライセンスや購入については、[お問い合わせください](https://univer.ai/#contact)。アプリケーションでのライセンス設定については、[ライセンス設定](https://docs.univer.ai/server/license)をご覧ください。
 
 Boundary principles:
 
@@ -308,7 +328,7 @@ Boundary principles:
 - **Core SDK**：[`dream-num/univer`](https://github.com/dream-num/univer)、この monorepo です。
 - **Presets**：このリポジトリの [`presets/`](../../presets)。ブラウザと Node.js アプリ向けの curated plugin collection です。
 - **AI agent skills**：[`dream-num/univer-sdk-skills`](https://github.com/dream-num/univer-sdk-skills)、Univer 統合、Pro 機能、プラグイン開発、Node バックエンドに取り組む AI agent 向けの再利用可能な指示集です。[AI Skills guide](https://docs.univer.ai/guides/skills) も参照してください。
-- **Documentation**：[docs.univer.ai](https://docs.univer.ai)、Sheets、Docs、Slides、recipes、Pro guides を含みます。
+- **Documentation**：[docs.univer.ai](https://docs.univer.ai)、Web SDK、Server SDK、AI SDK のガイドと API リファレンスを含みます。
 - **Web SDK**：[組み込みエディタとヘッドレス処理](https://docs.univer.ai/guides/sheets)をブラウザと Node.js で利用できます。
 - **Server SDK**：[共同編集とファイル変換](https://docs.univer.ai/server)を、アプリケーションのストレージ、認証、権限管理と統合します。
 - **AI SDK**：オフィスコンテンツの検査、編集、検証を行う[エージェントワークフロー](https://docs.univer.ai/ai)を構築できます。

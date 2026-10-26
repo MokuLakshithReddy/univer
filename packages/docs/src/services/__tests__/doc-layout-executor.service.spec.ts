@@ -15,7 +15,6 @@
  */
 
 import type { DocumentDataModel, IDocumentData } from '@univerjs/core';
-import type { IDocLayoutExecutor, IDocLayoutMountIdentity, IDocLayoutStartResult } from '../doc-layout-executor.service';
 import {
     CustomRangeType,
     DocumentFlavor,
@@ -38,6 +37,7 @@ import {
     setDocsCustomBlockRenderViewportProvider,
 } from '@univerjs/engine-render';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { IDocLayoutExecutor, IDocLayoutMountIdentity, IDocLayoutStartResult } from '../doc-layout-executor.service';
 import { RichTextEditingMutation } from '../../commands/mutations/core-editing.mutation';
 import { UniverDocsPlugin } from '../../plugin';
 import {
@@ -45,7 +45,6 @@ import {
     DocLayoutExecutorState,
     DocLayoutExecutorType,
     DocLayoutSessionStatus,
-
 } from '../doc-layout-executor.service';
 
 function createDocumentData(id: string, documentFlavor: DocumentFlavor): IDocumentData {
@@ -512,7 +511,7 @@ describe('DocLayoutExecutorService', () => {
         });
     });
 
-    it('projects committed mutations to the Worker in revision order before layout starts', async () => {
+    it.each([false, true])('projects committed mutations without resnapshot after empty operations: %s', async (emptyOperation) => {
         const injector = univer.__getInjector();
         const service = injector.get(DocLayoutExecutorService);
         const executor = createExecutor();
@@ -525,6 +524,13 @@ describe('DocLayoutExecutorService', () => {
 
         const commandService = injector.get(ICommandService);
         for (const [offset, text] of [[5, 'A'], [6, 'B']] as const) {
+            if (emptyOperation) {
+                commandService.syncExecuteCommand(RichTextEditingMutation.id, {
+                    unitId: 'traditional-doc',
+                    actions: [],
+                    textRanges: [],
+                });
+            }
             const textX = new TextX();
             textX.push({ t: TextXActionType.RETAIN, len: offset });
             textX.push({
@@ -715,7 +721,21 @@ describe('DocLayoutExecutorService', () => {
         ]);
     });
 
-    it.each(['body', 'header', 'footer'] as const)('serializes main-thread custom block viewport measurements from the %s with a layout start', async (story) => {
+    it.each([
+        { story: 'body', flavor: DocumentFlavor.TRADITIONAL, options: {}, margin: 50, pageWidth: 594 },
+        { story: 'header', flavor: DocumentFlavor.TRADITIONAL, options: {}, margin: 50, pageWidth: 594 },
+        { story: 'footer', flavor: DocumentFlavor.TRADITIONAL, options: {}, margin: 50, pageWidth: 594 },
+        { story: 'body', flavor: DocumentFlavor.MODERN, options: {}, margin: 50 / 0.75, pageWidth: 594 },
+        { story: 'header', flavor: DocumentFlavor.MODERN, options: {}, margin: 50 / 0.75, pageWidth: 594 },
+        { story: 'footer', flavor: DocumentFlavor.MODERN, options: {}, margin: 50 / 0.75, pageWidth: 594 },
+        {
+            story: 'body',
+            flavor: DocumentFlavor.MODERN,
+            options: { modernPageWidth: 720, modernHorizontalMargin: 24 },
+            margin: 24,
+            pageWidth: 720,
+        },
+    ])('serializes custom block measurements from the $story with flavor $flavor and margin $margin', async ({ story, flavor, options, margin, pageWidth }) => {
         const injector = univer.__getInjector();
         const service = injector.get(DocLayoutExecutorService);
         const executor = createExecutor();
@@ -726,6 +746,11 @@ describe('DocLayoutExecutorService', () => {
             if (!viewportEnabled || unitId !== 'traditional-doc' || blockId !== 'embed-1') {
                 return null;
             }
+            expect(input).toEqual(expect.objectContaining({
+                pageMarginLeft: margin,
+                pageMarginRight: margin,
+                pageWidth,
+            }));
             return {
                 width: input.fallbackWidth + extraWidth,
                 height: input.fallbackHeight + 20,
@@ -733,7 +758,9 @@ describe('DocLayoutExecutorService', () => {
                 contentHeight: 480,
             };
         });
-        const documentData = createDocumentData('traditional-doc', DocumentFlavor.TRADITIONAL);
+        const documentData = createDocumentData('traditional-doc', flavor);
+        documentData.documentStyle.marginLeft = 50;
+        documentData.documentStyle.marginRight = 50;
         documentData.body = {
             dataStream: '\b\r\n',
             paragraphs: [{ paragraphId: 'paragraph-1', startIndex: 1 }],
@@ -759,7 +786,7 @@ describe('DocLayoutExecutorService', () => {
         };
         if (story !== 'body') {
             const body = documentData.body;
-            documentData.body = createDocumentData('traditional-doc', DocumentFlavor.TRADITIONAL).body;
+            documentData.body = createDocumentData('traditional-doc', flavor).body;
             if (story === 'header') {
                 documentData.headers = { header: { headerId: 'header', body } };
                 documentData.documentStyle.defaultHeaderId = 'header';
@@ -771,7 +798,7 @@ describe('DocLayoutExecutorService', () => {
         univer.createUnit<IDocumentData, DocumentDataModel>(UniverInstanceType.UNIVER_DOC, documentData);
         await Promise.resolve();
 
-        await service.startLayout(createMountIdentity(), { reason: 'initial' }, 32);
+        await service.startLayout(createMountIdentity(), { reason: 'initial', ...options }, 32);
 
         expect(executor.startLayout).toHaveBeenCalledWith(expect.objectContaining({
             customBlockViewports: {
@@ -784,12 +811,12 @@ describe('DocLayoutExecutorService', () => {
             },
         }));
 
-        await service.startLayout(createMountIdentity(), { reason: 'edit' }, 32);
+        await service.startLayout(createMountIdentity(), { reason: 'edit', ...options }, 32);
         expect(vi.mocked(executor.startLayout).mock.lastCall?.[0]).not.toHaveProperty('customBlockViewportPatch');
         expect(vi.mocked(executor.startLayout).mock.lastCall?.[0]).not.toHaveProperty('customBlockViewports');
 
         extraWidth = 20;
-        await service.startLayout(createMountIdentity(), { reason: 'edit' }, 32);
+        await service.startLayout(createMountIdentity(), { reason: 'edit', ...options }, 32);
         expect(vi.mocked(executor.startLayout).mock.lastCall?.[0]).toEqual(expect.objectContaining({
             customBlockViewportPatch: {
                 removals: [],
@@ -805,7 +832,7 @@ describe('DocLayoutExecutorService', () => {
         }));
 
         viewportEnabled = false;
-        await service.startLayout(createMountIdentity(), { reason: 'edit' }, 32);
+        await service.startLayout(createMountIdentity(), { reason: 'edit', ...options }, 32);
         expect(vi.mocked(executor.startLayout).mock.lastCall?.[0]).toEqual(expect.objectContaining({
             customBlockViewportPatch: {
                 removals: ['embed-1'],

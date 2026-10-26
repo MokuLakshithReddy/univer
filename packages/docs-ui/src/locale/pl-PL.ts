@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Wklej specjalnie',
             title: 'Opcje wklejania',
             source: 'Zachowaj formatowanie źródłowe',
             destination: 'Dopasuj formatowanie docelowe',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Przywracanie układu dokumentu…',
         },
         toolbar: {
+            zoom: 'Powiększenie',
+            fullscreen: 'Pełny ekran',
             font: 'Czcionka',
             fontSize: 'Rozmiar czcionki',
             bold: 'Pogrubienie',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Usuń tabelę',
         },
         headerFooter: {
+            navigation: 'Nawigacja',
+            options: 'Opcje',
+            position: 'Pozycja',
+            refreshFields: 'Aktualizuj pola',
+            pageNumber: 'Numer strony',
+            currentPage: 'Bieżąca strona',
+            totalPages: 'Liczba stron',
+            dateTime: 'Data i godzina',
+            updateAutomatically: 'Aktualizuj automatycznie',
+            insertFailed: 'Dokument zmienił się lub nie można go edytować. Zamknij okno i spróbuj ponownie.',
+            goToHeader: 'Przejdź do nagłówka',
+            goToFooter: 'Przejdź do stopki',
+
             linkToPrevious: 'Połącz z poprzednim',
             header: 'Nagłówek',
             footer: 'Stopka',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Zmniejsz wcięcie',
             defaultTextColor: 'Domyślny kolor tekstu',
             noBackground: 'Brak tła',
+        },
+        heading: {
+            collapse: 'Zwiń',
+            expand: 'Rozwiń',
         },
         'page-settings': {
             'document-setting': 'Ustawienia dokumentu',

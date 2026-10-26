@@ -15,6 +15,7 @@
  */
 
 /* eslint-disable no-param-reassign */
+import { Subject } from 'rxjs';
 import type { IObjectArrayPrimitiveType, Nullable } from '../shared';
 import type {
     IDocumentData,
@@ -47,6 +48,8 @@ import { getIntersectRange } from '../shared/range';
 import { Skeleton } from '../skeleton';
 import { BooleanNumber, HorizontalAlign } from '../types/enum';
 import { DocumentFlavor } from '../types/interfaces';
+import { isValidSheetDimension, normalizeSheetDimension } from './sheet-dimensions';
+import { DEFAULT_WORKSHEET_COLUMN_WIDTH, DEFAULT_WORKSHEET_ROW_HEIGHT } from './sheet-snapshot-utils';
 
 /**
  * Configuration for a single gap (visual separator between rows or columns).
@@ -286,6 +289,9 @@ export class SheetSkeleton extends Skeleton {
 
     // #region Gap Config
 
+    private readonly _gapConfigChanged$ = new Subject<void>();
+    readonly gapConfigChanged$ = this._gapConfigChanged$.asObservable();
+
     get gapConfig(): ISheetGapConfig {
         return this._gapConfig;
     }
@@ -298,6 +304,7 @@ export class SheetSkeleton extends Skeleton {
         this._gapConfig = this._fillDefaultGapThemeColors(config);
         this.makeDirty(true);
         this._updateLayout();
+        this._gapConfigChanged$.next();
     }
 
     private _fillDefaultGapThemeColors(config: ISheetGapConfig): ISheetGapConfig {
@@ -397,9 +404,10 @@ export class SheetSkeleton extends Skeleton {
     ): { rowTotalHeight: number; rowHeightAccumulation: number[] } {
         let rowTotalHeight = 0;
         const rowHeightAccumulation: number[] = [];
+        const fallbackHeight = normalizeSheetDimension(defaultRowHeight, DEFAULT_WORKSHEET_ROW_HEIGHT, false);
         const data = rowData;
         for (let r = 0; r < rowCount; r++) {
-            let rowHeight = defaultRowHeight;
+            let rowHeight = fallbackHeight;
 
             if (this.worksheet.getRowFiltered(r)) {
                 rowHeight = 0;
@@ -409,14 +417,14 @@ export class SheetSkeleton extends Skeleton {
                     continue;
                 }
 
-                const { h = defaultRowHeight, ah, ia } = rowDataItem;
+                const { h = fallbackHeight, ah, ia } = rowDataItem;
                 if (
                     (ia == null || ia === BooleanNumber.TRUE) &&
-                    typeof ah === 'number' && ah > 0
+                    isValidSheetDimension(ah, false)
                 ) {
                     rowHeight = ah;
                 } else {
-                    rowHeight = h;
+                    rowHeight = normalizeSheetDimension(h, 0);
                 }
 
                 if (rowDataItem.hd === BooleanNumber.TRUE) {
@@ -449,11 +457,12 @@ export class SheetSkeleton extends Skeleton {
     ): { columnTotalWidth: number; columnWidthAccumulation: number[] } {
         let columnTotalWidth = 0;
         const columnWidthAccumulation: number[] = [];
+        const fallbackWidth = normalizeSheetDimension(defaultColumnWidth, DEFAULT_WORKSHEET_COLUMN_WIDTH, false);
 
         const data = columnData;
 
         for (let c = 0; c < colCount; c++) {
-            let columnWidth = defaultColumnWidth;
+            let columnWidth = fallbackWidth;
 
             if (data[c] != null) {
                 const columnDataItem = data[c];
@@ -461,8 +470,8 @@ export class SheetSkeleton extends Skeleton {
                 if (!columnDataItem) {
                     continue;
                 }
-                if (columnDataItem.w != null) {
-                    columnWidth = columnDataItem.w;
+                if (columnDataItem.w !== undefined) {
+                    columnWidth = normalizeSheetDimension(columnDataItem.w, 0);
                 }
 
                 if (columnDataItem.hd === BooleanNumber.TRUE) {
@@ -1110,11 +1119,15 @@ export class SheetSkeleton extends Skeleton {
     }
 
     /**
-     * Here, offsetX and offsetY are the coordinates in the viewport, including the rowHeaderWidthAndMarginLeft and columnHeaderHeightAndMarginTop.
+     * Coordinates include the row and column headers. Defaults to the current viewport transform;
+     * pass unit scales and zero scroll for Sheet model coordinates.
      */
     getCellIndexAndOffsetByPosition(
         offsetX: number,
-        offsetY: number
+        offsetY: number,
+        scaleX: number = this._scaleX,
+        scaleY: number = this._scaleY,
+        scrollXY: { x: number; y: number } = { x: this._scrollX, y: this._scrollY }
     ): {
         row: number;
         rowOffset: number;
@@ -1124,12 +1137,9 @@ export class SheetSkeleton extends Skeleton {
         const { actualRow, actualColumn, startX, startY } = this.getCellWithCoordByOffset(
             offsetX,
             offsetY,
-            this._scaleX,
-            this._scaleY,
-            {
-                x: this._scrollX,
-                y: this._scrollY,
-            }
+            scaleX,
+            scaleY,
+            scrollXY
         );
 
         return {
@@ -1191,6 +1201,7 @@ export class SheetSkeleton extends Skeleton {
 
     override dispose(): void {
         super.dispose();
+        this._gapConfigChanged$.complete();
 
         this._rowHeightAccumulation = [];
         this._columnWidthAccumulation = [];

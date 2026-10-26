@@ -31,6 +31,7 @@ import {
 import {
     getDrawingShapeKeyByDrawingSearch,
     IDrawingManagerService,
+    normalizeImageOpacity,
 } from '@univerjs/drawing';
 import { DRAWING_OBJECT_LAYER_INDEX, Image, Rect } from '@univerjs/engine-render';
 import { IGalleryService } from '@univerjs/ui';
@@ -102,6 +103,7 @@ export class DrawingRenderService {
             transforms: multiTransforms,
             adjustValues,
             hidden,
+            opacity,
         } = imageParam;
         const { docxHeaderFooterDrawing, layoutType } = imageParam as IImageData & {
             docxHeaderFooterDrawing?: boolean;
@@ -140,6 +142,9 @@ export class DrawingRenderService {
                     imageShape.transformerConfig = { ...imageShape.transformerConfig, rotateEnabled: false };
                 }
                 (imageShape as Image).setClipBounds?.((transform as IDrawingTransformStateWithClipBounds).clipBounds);
+                if (this._univerInstanceService.getUnitType(unitId) === UniverInstanceType.UNIVER_SHEET || opacity !== undefined) {
+                    (imageShape as Image).setOpacity(normalizeImageOpacity(opacity));
+                }
                 if ('hidden' in imageParam) {
                     hidden ? imageShape.hide() : imageShape.show();
                 }
@@ -149,7 +154,11 @@ export class DrawingRenderService {
 
             const orders = this._drawingManagerService.getDrawingOrder(unitId, subUnitId);
             const zIndex = orders.indexOf(drawingId);
-            const imageConfig: IImageProps = { ...transform, zIndex: zIndex === -1 ? (orders.length - 1) : zIndex };
+            const imageConfig: IImageProps = {
+                ...transform,
+                opacity: normalizeImageOpacity(opacity),
+                zIndex: zIndex === -1 ? (orders.length - 1) : zIndex,
+            };
             const imageNativeCache = this._imageIoService.getImageSourceCache(source, imageSourceType);
 
             let shouldBeCache = false;

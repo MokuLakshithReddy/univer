@@ -136,11 +136,13 @@ export function UniverSheetsCorePreset(config: Partial<IUniverSheetsCorePresetCo
                 onlyRegisterFormulaRelatedMutations: false,
                 isRowStylePrecedeColumnStyle: sheets?.isRowStylePrecedeColumnStyle,
                 autoHeightForMergedCells: sheets?.autoHeightForMergedCells,
+                textLineGap: sheets?.textLineGap,
                 freezeSync: sheets?.freezeSync,
             }],
             [UniverSheetsUIPlugin, {
                 formulaBar,
                 footer,
+                allowArrowKeyWrapOnSheetBoundary: sheets?.allowArrowKeyWrapOnSheetBoundary,
                 maxAutoHeightCount: sheets?.maxAutoHeightCount,
                 clipboardConfig: sheets?.clipboardConfig,
                 scrollConfig: sheets?.scrollConfig,

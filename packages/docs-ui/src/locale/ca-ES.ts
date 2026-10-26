@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Enganxament especial',
             title: 'Opcions d’enganxament',
             source: 'Mantén el format d’origen',
             destination: 'Adapta al format de destinació',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'S’està restaurant el disseny del document…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Pantalla completa',
             font: 'Tipus de lletra',
             fontSize: 'Mida de lletra',
             bold: 'Negreta',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Elimina taula',
         },
         headerFooter: {
+            navigation: 'Navegació',
+            options: 'Opcions',
+            position: 'Posició',
+            refreshFields: 'Actualitza els camps',
+            pageNumber: 'Número de pàgina',
+            currentPage: 'Pàgina actual',
+            totalPages: 'Total de pàgines',
+            dateTime: 'Data i hora',
+            updateAutomatically: 'Actualitza automàticament',
+            insertFailed: 'El document ha canviat o no es pot editar. Tanqueu aquest diàleg i torneu-ho a provar.',
+            goToHeader: 'Ves a la capçalera',
+            goToFooter: 'Ves al peu de pàgina',
+
             linkToPrevious: 'Enllaça amb l\'anterior',
             header: 'Capçalera',
             footer: 'Peu de pàgina',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Redueix el sagnat',
             defaultTextColor: 'Color de text predeterminat',
             noBackground: 'Sense fons',
+        },
+        heading: {
+            collapse: 'Redueix',
+            expand: 'Expandeix',
         },
         'page-settings': {
             'document-setting': 'Configuració de document',

@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-import type { Nullable, Workbook } from '@univerjs/core';
+import type { Workbook } from '@univerjs/core';
 import type { KeyCode } from '@univerjs/ui';
-import type { ICellEditorState } from '../../services/editor-bridge.service';
 import {
     DisposableCollection,
     DOCS_NORMAL_EDITOR_UNIT_ID_KEY,
@@ -79,33 +78,6 @@ const EDITOR_DEFAULT_POSITION = {
 
 const CELL_EDITOR_DARK_SURFACE_THEME_COLOR = 'gray.800';
 const CELL_EDITOR_LIGHT_SURFACE_THEME_COLOR = 'gray.0';
-
-interface ICellEditorHostBackgroundOptions {
-    darkMode?: boolean;
-    getColorFromTheme?: (color: string) => string | undefined;
-}
-
-/**
- * @returns the host background color for the cell editor.
- */
-function getCellEditorHostBackgroundColor(
-    editState: Nullable<Pick<ICellEditorState, 'documentLayoutObject'>>,
-    options: ICellEditorHostBackgroundOptions = {}
-): string | undefined {
-    const cellFill = editState?.documentLayoutObject.fill;
-    if (cellFill && !isTransparentColor(cellFill)) {
-        return cellFill;
-    }
-
-    return options.getColorFromTheme?.(
-        options.darkMode ? CELL_EDITOR_DARK_SURFACE_THEME_COLOR : CELL_EDITOR_LIGHT_SURFACE_THEME_COLOR
-    );
-}
-
-function isTransparentColor(color: string) {
-    const normalizedColor = color.trim().toLowerCase().replace(/\s+/g, '');
-    return normalizedColor === 'transparent' || normalizedColor === 'rgba(0,0,0,0)';
-}
 
 export function shouldRefocusCellEditorAfterPointerDown(options: {
     root: HTMLElement | null | undefined;
@@ -243,6 +215,11 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
         : null;
     const activeSheet = useActiveWorksheet(workbook);
     const darkMode = useObservable(themeService.darkMode$, themeService.darkMode);
+    const cellFill = editState?.documentLayoutObject.fill;
+    const normalizedFill = cellFill?.trim().toLowerCase().replace(/\s+/g, '');
+    const editorBackgroundColor = cellFill && normalizedFill !== 'transparent' && normalizedFill !== 'rgba(0,0,0,0)'
+        ? cellFill
+        : themeService.getColorFromTheme(darkMode ? CELL_EDITOR_DARK_SURFACE_THEME_COLOR : CELL_EDITOR_LIGHT_SURFACE_THEME_COLOR);
     const [showEditCellAddress, setShowEditCellAddress] = useState(false);
     const editSheetName = editState ? workbook?.getSheetBySheetId(editState.sheetId)?.getName() : null;
     const editCellAddress = editState
@@ -250,8 +227,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
             ? `'${quoteSheetName(editSheetName)}'!`
             : ''}${numberToABC(editState.column)}${editState.row + 1}`
         : null;
-    // The editor border uses the normal selection stroke, so the address label stays visually in sync with it.
-    const editorBorderColor = genNormalSelectionStyle(themeService).stroke;
+    const { stroke: editorBorderColor, strokeWidth: editorBorderWidth } = genNormalSelectionStyle(themeService);
     const focusCoordinator = injector.has(ISheetEmbedRuntimeFocusCoordinator)
         ? injector.get(ISheetEmbedRuntimeFocusCoordinator)
         : undefined;
@@ -384,7 +360,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                 return;
             }
 
-            focusSheetCellEditorElement(ownerDocument);
+            focusSheetCellEditorElement(editorService);
             if (delayedFocusTimer != null) {
                 ownerWindow.clearTimeout(delayedFocusTimer);
             }
@@ -393,7 +369,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                 if (shouldPreserveEmbedInteractiveFocus(scope?.embedId, ownerDocument)) {
                     return;
                 }
-                focusSheetCellEditorElement(ownerDocument);
+                focusSheetCellEditorElement(editorService);
             }, 0);
         };
         const focusEditor = () => {
@@ -406,13 +382,6 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                 : resolveActiveSheetEmbedRuntimeDomScope(ownerDocument);
             if (shouldPreserveEmbedControlFocus(scope?.embedId, ownerDocument)) {
                 return;
-            }
-
-            const editor = editorService.getEditor(DOCS_NORMAL_EDITOR_UNIT_ID_KEY);
-            const docSelectionRenderService = editor?.render.with(DocSelectionRenderService);
-
-            if (!docSelectionRenderService?.isFocusing) {
-                docSelectionRenderService?.focus();
             }
 
             focusCellEditorElement();
@@ -484,6 +453,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
             element: editorRoot,
         }));
         collection.add(registerSheetCellEditorRuntimePortal({
+            editorService,
             embedId: scope.embedId,
             ownerDocument: rootRef.current.ownerDocument,
             interactionBoundaryService,
@@ -497,14 +467,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                     return;
                 }
 
-                const editor = editorService.getEditor(DOCS_NORMAL_EDITOR_UNIT_ID_KEY);
-                const docSelectionRenderService = editor?.render.with(DocSelectionRenderService);
-
-                if (!docSelectionRenderService?.isFocusing) {
-                    docSelectionRenderService?.focus();
-                }
-
-                focusSheetCellEditorElement(ownerDocument);
+                focusSheetCellEditorElement(editorService);
             };
             const refocusEditorAfterRuntimePointer = (event: PointerEvent | MouseEvent) => {
                 if (!focusCoordinator.isChildUnitRuntimeEvent(scope.childUnitId, event.target, event) || isEmbedRuntimeEditorOrPopup(event.target)) {
@@ -554,6 +517,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
             ? injector.get(ISheetEmbedInteractionBoundaryService)
             : undefined;
         const portalRegistration = registerSheetCellEditorRuntimePortal({
+            editorService,
             embedId: activeSessionScope.embedId,
             ownerDocument,
             interactionBoundaryService,
@@ -566,7 +530,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                 return;
             }
 
-            focusSheetCellEditorElement(ownerDocument);
+            focusSheetCellEditorElement(editorService);
             if (delayedFocusTimer != null) {
                 ownerWindow.clearTimeout(delayedFocusTimer);
             }
@@ -575,7 +539,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                 if (shouldPreserveEmbedInteractiveFocus(activeSessionScope.embedId, ownerDocument)) {
                     return;
                 }
-                focusSheetCellEditorElement(ownerDocument);
+                focusSheetCellEditorElement(editorService);
             }, 0);
         };
         const focusHiddenEditor = () => {
@@ -630,8 +594,8 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
     }, [contextService, disableAutoFocus, editorService, focusCoordinator, injector, instanceService, runtimeFocusState, visible?.visible]);
 
     useEffect(() => {
+        const ownerWindow = rootRef.current?.ownerDocument.defaultView;
         return () => {
-            const ownerWindow = rootRef.current?.ownerDocument.defaultView;
             if (ownerWindow && pointerRefocusTimerRef.current != null) {
                 ownerWindow.clearTimeout(pointerRefocusTimerRef.current);
             }
@@ -664,17 +628,13 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
 
         pointerRefocusTimerRef.current = ownerWindow.setTimeout(() => {
             pointerRefocusTimerRef.current = undefined;
-            if (!docSelectionRenderService?.isFocusing) {
-                docSelectionRenderService?.focus();
-            }
-
-            focusSheetCellEditorElement(ownerDocument);
+            focusSheetCellEditorElement(editorService);
         }, 0);
     });
 
     const handleClickSideBar = useEvent(() => {
         if (editorBridgeService.isVisible().visible) {
-            commandService.executeCommand(SetCellEditVisibleOperation.id, {
+            return commandService.executeCommand(SetCellEditVisibleOperation.id, {
                 visible: false,
                 eventType: DeviceInputEventType.PointerUp,
                 unitId: editState?.unitId,
@@ -687,7 +647,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
     const keyCodeConfig = useKeyEventConfig(editState?.unitId);
 
     const onMoveInEditor = useEvent((keycode: KeyCode, metaKey: MetaKeys) => {
-        commandService.executeCommand(SetCellEditVisibleArrowOperation.id, {
+        return commandService.executeCommand(SetCellEditVisibleArrowOperation.id, {
             keycode,
             visible: false,
             eventType: DeviceInputEventType.Keyboard,
@@ -709,10 +669,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                 height: state.height,
                 opacity: hidden ? 0 : undefined,
                 pointerEvents: hidden ? 'none' : undefined,
-                backgroundColor: getCellEditorHostBackgroundColor(editState, {
-                    darkMode,
-                    getColorFromTheme: themeService.getColorFromTheme.bind(themeService),
-                }),
+                backgroundColor: editorBackgroundColor,
             }}
         >
             {visible?.visible && showEditCellAddress && editCellAddress && (
@@ -749,6 +706,7 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                     resetSelectionOnBlur={false}
                     isSingle={false}
                     autoScrollbar={false}
+                    borderless
                     onFormulaSelectingChange={(isSelecting: 0 | 1 | 2) => {
                         if (isSelecting) {
                             editorBridgeService.enableForceKeepVisible();
@@ -758,6 +716,21 @@ export function EditorContainer({ hidden = false }: IEditorContainerProps) {
                     }}
                     disableContextMenu={false}
                     canvasStyle={{ backgroundColor: 'transparent' }}
+                />
+            )}
+            {visible?.visible && (
+                <div
+                    aria-hidden
+                    className="
+                      univer-pointer-events-none univer-absolute univer-left-0 univer-top-0 univer-z-10
+                      univer-box-border
+                    "
+                    style={{
+                        // Selection strokes start at the cell edge and include its last pixel.
+                        width: state.width + editorBorderWidth,
+                        height: state.height + editorBorderWidth,
+                        border: `${editorBorderWidth}px solid ${editorBorderColor}`,
+                    }}
                 />
             )}
         </div>

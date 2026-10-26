@@ -20,7 +20,6 @@ import type {
     ISheetDrawing,
     ISheetDrawingPlacementInput,
 } from '@univerjs/sheets-drawing';
-import type { LocaleKey } from '../../locale/types';
 import { ICommandService, LocaleService } from '@univerjs/core';
 import { clsx, Radio, RadioGroup } from '@univerjs/design';
 import { IDrawingManagerService } from '@univerjs/drawing';
@@ -32,12 +31,26 @@ import {
 } from '@univerjs/sheets-drawing';
 import { useDependency } from '@univerjs/ui';
 import { useEffect, useState } from 'react';
+import { isSheetDrawing } from './sheet-drawing-panel.util';
+
+import type { LocaleKey } from '../../locale/types';
 
 export interface ISheetDrawingAnchorProps {
     drawings: IDrawingParam[];
 }
 
 export const SheetDrawingAnchor = (props: ISheetDrawingAnchorProps) => {
+    function getAnchorKind(value: string | number | boolean): SheetDrawingAnchorType | null {
+        if (
+            value === SheetDrawingAnchorType.Position ||
+            value === SheetDrawingAnchorType.Both ||
+            value === SheetDrawingAnchorType.None
+        ) {
+            return value;
+        }
+        return null;
+    }
+
     const commandService = useDependency(ICommandService);
     const localeService = useDependency(LocaleService);
     const drawingManagerService = useDependency(IDrawingManagerService);
@@ -203,18 +216,3 @@ export const SheetDrawingAnchor = (props: ISheetDrawingAnchorProps) => {
         </div>
     );
 };
-
-function isSheetDrawing(drawing: IDrawingParam | undefined): drawing is ISheetDrawing {
-    return Boolean(drawing && 'sheetTransform' in drawing && 'axisAlignSheetTransform' in drawing);
-}
-
-function getAnchorKind(value: string | number | boolean): SheetDrawingAnchorType | null {
-    if (
-        value === SheetDrawingAnchorType.Position ||
-        value === SheetDrawingAnchorType.Both ||
-        value === SheetDrawingAnchorType.None
-    ) {
-        return value;
-    }
-    return null;
-}

@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Incolla speciale',
             title: 'Opzioni di incolla',
             source: 'Mantieni formattazione originale',
             destination: 'Adatta alla formattazione di destinazione',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Ripristino del layout del documento…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Schermo intero',
             font: 'Carattere',
             fontSize: 'Dimensione carattere',
             bold: 'Grassetto',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Elimina tabella',
         },
         headerFooter: {
+            navigation: 'Navigazione',
+            options: 'Opzioni',
+            position: 'Posizione',
+            refreshFields: 'Aggiorna campi',
+            pageNumber: 'Numero di pagina',
+            currentPage: 'Pagina corrente',
+            totalPages: 'Totale pagine',
+            dateTime: 'Data e ora',
+            updateAutomatically: 'Aggiorna automaticamente',
+            insertFailed: 'Il documento è cambiato o non può essere modificato. Chiudi questa finestra e riprova.',
+            goToHeader: 'Vai all’intestazione',
+            goToFooter: 'Vai al piè di pagina',
+
             linkToPrevious: 'Collega al precedente',
             header: 'Intestazione',
             footer: 'Piè di pagina',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Riduci rientro',
             defaultTextColor: 'Colore testo predefinito',
             noBackground: 'Nessuno sfondo',
+        },
+        heading: {
+            collapse: 'Comprimi',
+            expand: 'Espandi',
         },
         'page-settings': {
             'document-setting': 'Impostazione Documento',

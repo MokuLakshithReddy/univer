@@ -48,6 +48,7 @@ import type {
     IUniverSheetCopyDataModel,
 } from './type';
 import {
+    BooleanNumber,
     CellModeEnum,
     cloneCellDataWithSpanAndDisplay,
     createIdentifier,
@@ -75,12 +76,15 @@ import {
 } from '@univerjs/core';
 import { IRenderManagerService, withCurrentTypeOfRenderer } from '@univerjs/engine-render';
 import {
+    discreteRangeToRange,
     getPrimaryForRange,
+    MoveRangeCommand,
     rangeToDiscreteRange,
     SetSelectionsOperation,
     SetWorksheetActiveOperation,
     SetWorksheetRowAutoHeightMutation,
     SetWorksheetRowAutoHeightMutationFactory,
+    SheetInterceptorService,
     SheetsSelectionsService,
 } from '@univerjs/sheets';
 import {
@@ -181,9 +185,10 @@ interface ICopyContent {
  * This service provide hooks for sheet features to supplement content or modify behavior of clipboard.
  */
 
+// Univer clipboard HTML also contains Word compatibility metadata.
+HtmlToUSMService.use(UniverPastePlugin);
 HtmlToUSMService.use(WordPastePlugin);
 HtmlToUSMService.use(LarkPastePlugin);
-HtmlToUSMService.use(UniverPastePlugin);
 
 export interface ISheetClipboardService {
     showMenu$: Observable<boolean>;
@@ -1022,6 +1027,22 @@ export class SheetClipboardService extends Disposable implements ISheetClipboard
             const start = pasteTarget.pastedRange.rows[0];
             const end = range.rows[range.rows.length - 1] - range.rows[0] + start;
             pasteTarget.pastedRange.rows = Array.from(new Array(end + 1).keys()).slice(start);
+            if (!skipCellCopy) {
+                const canMove = await this._injector.get(SheetInterceptorService).beforeCommandExecute({
+                    id: MoveRangeCommand.id,
+                    params: {
+                        fromUnitId: copyUnitId,
+                        fromSubUnitId: copySubUnitId,
+                        fromRange: discreteRangeToRange(range),
+                        toUnitId: target.unitId,
+                        toSubUnitId: target.subUnitId,
+                        toRange: discreteRangeToRange(pasteTarget.pastedRange),
+                    },
+                });
+                if (!canMove) {
+                    return false;
+                }
+            }
         }
 
         const pasteRes = this._pasteUSM(
@@ -1226,11 +1247,13 @@ export class SheetClipboardService extends Disposable implements ISheetClipboard
         const pasteRangeStartColumn = cols[0];
         const pasteRangeEndColumn = cols[cols.length - 1];
 
-        // If there are rows without row height set in the pasted range, we need to set them to auto height
+        // Recalculate auto-height rows while preserving explicit and legacy manual row heights.
         const needAutoHeight: IRowAutoHeightInfo[] = [];
         for (let r = pasteRangeStartRow; r <= pasteRangeEndRow; r++) {
             const rowData = rowManager.getRow(r);
-            if (!rowData) {
+            const hasLegacyManualHeight = rowData?.ia == null && rowData?.ah == null && typeof rowData?.h === 'number';
+            const isManualHeight = rowData?.ia === BooleanNumber.FALSE || hasLegacyManualHeight;
+            if (!isManualHeight) {
                 const autoHeight = skeleton.calculateAutoHeightInRange([
                     {
                         startRow: r,

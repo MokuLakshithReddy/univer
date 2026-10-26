@@ -16,6 +16,7 @@
 
 import type { IExecutionOptions, IMutation, IUnitRange, Nullable } from '@univerjs/core';
 import type {
+    IFormulaData,
     IFormulaExecuteResultMap,
     IFormulaStringMap,
     IRuntimeOtherUnitDataType,
@@ -27,7 +28,7 @@ import type {
     IFormulaDependentsAndInRangeResults,
 } from '../../engine/dependency/dependency-tree';
 import type { IFormulaDirtyData } from '../../services/current-data.service';
-import type { FormulaExecutedStateType, IExecutionInProgressParams } from '../../services/runtime.service';
+import type { FormulaExecutedStateType, ICircularReference, IExecutionInProgressParams } from '../../services/runtime.service';
 import { CommandType } from '@univerjs/core';
 
 export interface ISetFormulaCalculationStartMutation extends IFormulaDirtyData {
@@ -116,6 +117,7 @@ export const SetFormulaCalculationStopMutation: IMutation<ISetFormulaCalculation
 
 // TODO: this name lacks Params
 export interface ISetFormulaCalculationNotificationMutation {
+    circularReferences?: ICircularReference[];
     functionsExecutedState?: FormulaExecutedStateType;
     stageInfo?: IExecutionInProgressParams;
 }
@@ -128,6 +130,7 @@ export const SetFormulaCalculationNotificationMutation: IMutation<ISetFormulaCal
 
 export interface ISetFormulaCalculationResultMutation {
     unitData: IRuntimeUnitDataPrimitiveType;
+    sourceFormulaData?: IFormulaData;
     unitOtherData: IRuntimeOtherUnitDataType;
 }
 

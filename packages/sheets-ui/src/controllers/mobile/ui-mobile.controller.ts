@@ -93,6 +93,7 @@ import {
     SelectAllCommand,
 } from '../../commands/commands/set-selection.command';
 import { SetWorksheetColAutoWidthCommand } from '../../commands/commands/set-worksheet-auto-col-width.command';
+import { SetZoomRatioFromToolbarCommand } from '../../commands/commands/set-zoom-ratio-from-toolbar.command';
 import { ChangeZoomRatioCommand, SetZoomRatioCommand } from '../../commands/commands/set-zoom-ratio.command';
 import { ShowMenuListCommand } from '../../commands/commands/unhide.command';
 import { ChangeSheetProtectionFromSheetBarCommand, DeleteWorksheetProtectionFormSheetBarCommand } from '../../commands/commands/worksheet-protection.command';
@@ -188,8 +189,17 @@ export const MobileFormulaBarSubmitCommand: ICommand = {
         editorBridgeService.refreshEditCellState();
         editorBridgeService.changeEditorDirty(false);
 
+        const editorService = accessor.get(IEditorService);
+        const formulaEditor = editorService.getEditor(DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY);
+        if (editorService.getFocusId() !== DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY) {
+            editorService.focus(DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY);
+        } else {
+            // Refreshing the next cell can reset the active document while the formula bar stays focused.
+            formulaEditor?.focus();
+        }
+
         const endOffset = Math.max(0, (formulaModel.getBody()?.dataStream.length ?? 2) - 2);
-        accessor.get(IEditorService).getEditor(DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY)?.setSelectionRanges([{
+        formulaEditor?.setSelectionRanges([{
             startOffset: endOffset,
             endOffset,
         }], false);
@@ -277,6 +287,7 @@ export class SheetUIMobileController extends Disposable {
             ScrollToRangeOperation,
             SetUnderlineCommand,
             SetZoomRatioCommand,
+            SetZoomRatioFromToolbarCommand,
             SetZoomRatioOperation,
             ShowMenuListCommand,
             InsertRangeMoveDownConfirmCommand,
@@ -285,7 +296,6 @@ export class SheetUIMobileController extends Disposable {
             DeleteRangeMoveLeftConfirmCommand,
             MoveRangeConfirmCommand,
             SidebarDefinedNameOperation,
-
             // permission
             SheetPermissionOpenPanelOperation,
             SheetPermissionOpenDialogOperation,

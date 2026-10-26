@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Tempel khusus',
             title: 'Opsi tempel',
             source: 'Pertahankan format sumber',
             destination: 'Sesuaikan format tujuan',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Memulihkan tata letak dokumen…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Layar penuh',
             font: 'Font',
             fontSize: 'Ukuran font',
             bold: 'Tebal',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Hapus tabel',
         },
         headerFooter: {
+            navigation: 'Navigasi',
+            options: 'Opsi',
+            position: 'Posisi',
+            refreshFields: 'Perbarui bidang',
+            pageNumber: 'Nomor halaman',
+            currentPage: 'Halaman saat ini',
+            totalPages: 'Total halaman',
+            dateTime: 'Tanggal dan waktu',
+            updateAutomatically: 'Perbarui otomatis',
+            insertFailed: 'Dokumen berubah atau tidak dapat diedit. Tutup dialog ini dan coba lagi.',
+            goToHeader: 'Ke header',
+            goToFooter: 'Ke footer',
+
             linkToPrevious: 'Tautkan ke sebelumnya',
             header: 'Header',
             footer: 'Footer',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Kurangi inden',
             defaultTextColor: 'Warna teks default',
             noBackground: 'Tanpa latar belakang',
+        },
+        heading: {
+            collapse: 'Ciutkan',
+            expand: 'Perluas',
         },
         'page-settings': {
             'document-setting': 'Pengaturan Dokumen',

@@ -4,7 +4,7 @@
 
 **面向 AI Agent 的 Office Harness**
 
-电子表格 · 文档 · 演示文稿 · Bases · Boards · PDF（即将推出）
+电子表格 · 文档 · 演示文稿 · Bases · Boards · PDF
 
 高性能、可完全定制的 Office SDK
 
@@ -49,13 +49,31 @@ Univer 不只是一个电子表格文件查看器。它是用于构建你自己�
 
 在 [Univer 产品家族](https://univer.ai/)中，办公工具共享存储与计算运行时。不同工具的内容可以自由组合和嵌入，关联数据与引用随来源同步更新，人与 AI Agent 可以在同一文件中协作。产品能力请参阅[能力矩阵](https://univer.ai/capabilities)，本仓库的范围请参阅[开源与 Pro](#-开源与-pro)。
 
+### 使用 Univer Office SDK 构建协作工具
+
+[![使用 Univer Office SDK 构建协作工具](https://i.ytimg.com/vi/1p-SMEiK6Kg/maxresdefault.jpg)](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
+[观看演示](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
 ## 基于 Univer Office SDK 构建
+
+### 重点案例：Univer Workspace
+
+[Univer Workspace](https://github.com/dream-num/univer-workspace) 是基于 Univer Office SDK 构建、支持自行部署的开源工作空间，人与 AI Agent 可以在其中创建、协作处理和审阅办公内容。开发者可以参考完整实现，学习如何集成 SDK，并构建自己的产品。
+
+[![Workspace Mini App 与其关联的电子表格并排显示，指标、图表和控件绑定到单元格](../img/workspace-mini-app.png)](https://github.com/dream-num/univer-workspace)
+
+- Agent 可以生成基于电子表格的 Mini App，例如决策看板、交互式报告和业务看板。
+- 网页上的指标、图表和控件与单元格绑定，支持数据读取、写入和协同更新。
+
+[了解 Univer Workspace](https://github.com/dream-num/univer-workspace)
+
+### 其他案例
 
 以下开源项目基于 Univer Office SDK 构建：
 
 | 项目 | 说明 |
 | --- | --- |
-| [Univer Workspace](https://github.com/dream-num/univer-workspace) | 面向人与 AI Agent 的办公工作空间，支持共同编辑和审阅 Agent 的修改。 |
 | [Univer Office for DeepSeek Harness](https://github.com/dream-num/dsh-univer-office) | 面向 DeepSeek Harness 的办公插件，支持关联内容、验证和用于 Agent 协作的独立 Worktree。 |
 | [Univer CLI](https://github.com/dream-num/univer-cli) | 供 Agent 创建、编辑、检查和交付办公内容的本地命令行工作空间。 |
 | [Univer Office for WorkBuddy](https://github.com/dream-num/workbuddy-univer-office) | 面向 WorkBuddy 的本地办公集成，支持 MCP 预览和草稿审阅。目前为开发预览版。 |
@@ -273,12 +291,12 @@ univerAPI.createWorkbook({})
 | --- | --- | --- |
 | **Sheets** | 工作簿、工作表、区域、选择、公式、数字格式、筛选、排序、数据验证、条件格式、超链接、评论、查找替换、批注、表格、绘图集成和可扩展 UI 插件。 | 实时协同、编辑历史、导入导出、打印、图表、数据透视表、迷你图、分级显示、形状、单元格内图形、数据连接器、服务端计算和增强公式能力。 |
 | **Docs** | 富文本文档模型、编辑 UI、列表、超链接、绘图集成、评论、快捷插入和共享文档架构。 | 协同、导入导出、打印、增强表格和列表、分栏、提示块、代码块、引用块、形状和远程评论资源。 |
-| **Slides** | 演示文稿数据模型和 UI 包，目前仍在积极开发中。 | Pro 演示文稿模型和 UI、幻灯片导入导出、图表和表格模型/UI 插件，以及共享形状编辑基础设施。 |
+| **Slides** | 演示文稿数据模型和编辑 UI 包。 | Pro 演示文稿模型和 UI、幻灯片导入导出、图表和表格模型/UI 插件，以及共享形状编辑基础设施。 |
 | **Bases** | 基于 Univer 的插件、命令和模型架构构建自定义结构化数据体验。 | Base 数据库模型、命令、公式集成、工作台 UI、字段编辑器和渲染引擎视图。 |
 | **Runtime** | 浏览器应用、Node.js 无头使用、Web Worker/RPC 模式、多实例使用和服务端自动化。 | 协同客户端/服务端包、Node.js 协同客户端、Pro 服务端服务、SSR、计算委托、服务端计算和 changeset 回放工具。 |
 | **Integrations** | React、Vue、Web Components、框架模板、主题、本地化和自定义插件。 | Pro 预设和企业部署包。 |
 
-Sheets 是目前最成熟的产品界面。Docs 和 Slides 共享 Univer 的架构，并在同一 SDK 中持续演进。
+Sheets、Docs 和 Slides 基于 Univer 的共享架构，分别提供电子表格、文档和演示文稿编辑能力，并使用一致的插件系统、命令系统和 Facade API。
 
 ## 🔓 开源与 Pro
 
@@ -293,7 +311,9 @@ Sheets 是目前最成熟的产品界面。Docs 和 Slides 共享 Univer 的架�
 | **Bases** | 用于自定义数据类产品的可扩展插件架构。 | Base 数据库核心模型、命令、变更、公式集成、工作台 UI、字段编辑器和渲染引擎集成。 |
 | **服务端与运行时** | Node.js 无头运行时、RPC/Web Worker 模式和面向服务端自动化的基础能力。 | 协同服务端、Node.js 协同客户端、SSR 服务、计算委托、服务端计算和协同 changeset 回放工具。 |
 
-Pro 功能请参考 [Univer Pro 指南](https://docs.univer.ai/guides/pro)。这里将其单独列出，是为了清晰区分 OSS 包的能力边界。
+编辑器功能请参考 [Web SDK 文档](https://docs.univer.ai/guides/sheets)。服务端集成请参考 Server SDK 中的[协同](https://docs.univer.ai/server/collaboration/overview)和[文件导入导出](https://docs.univer.ai/server/import-export)章节。
+
+商业授权和购买咨询请[联系我们](https://univer.ai/#contact)。在应用中配置许可证，请参考[许可证配置](https://docs.univer.ai/server/license)。
 
 边界原则：
 
@@ -307,7 +327,7 @@ Pro 功能请参考 [Univer Pro 指南](https://docs.univer.ai/guides/pro)。这
 - **核心 SDK**：[`dream-num/univer`](https://github.com/dream-num/univer)，也就是当前 monorepo。
 - **Presets**：本仓库的 [`presets/`](../../presets)，面向浏览器和 Node.js 应用的预设插件集合。
 - **AI agent skills**：[`dream-num/univer-sdk-skills`](https://github.com/dream-num/univer-sdk-skills)，供 AI agent 使用的可复用说明，覆盖 Univer 集成、Pro 功能、插件开发和 Node 后端。参见 [AI Skills 指南](https://docs.univer.ai/guides/skills)。
-- **文档**：[docs.univer.ai](https://docs.univer.ai)，包含 Sheets、Docs、Slides、recipes 和 Pro 指南。
+- **文档**：[docs.univer.ai](https://docs.univer.ai)，包含 Web SDK、Server SDK 和 AI SDK 指南及 API 参考。
 - **Web SDK**：在浏览器和 Node.js 中提供[嵌入式编辑器与无头处理](https://docs.univer.ai/guides/sheets)能力。
 - **Server SDK**：将[协作与文件转换](https://docs.univer.ai/server)接入应用的存储、身份认证和权限系统。
 - **AI SDK**：通过 [Agent 工作流](https://docs.univer.ai/ai)检查、编辑和验证办公内容。

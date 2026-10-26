@@ -4,7 +4,7 @@
 
 **El Office Harness para agentes de IA**
 
-Hojas de cálculo · Documentos · Presentaciones · Bases · Boards · PDF (próximamente)
+Hojas de cálculo · Documentos · Presentaciones · Bases · Boards · PDF
 
 Office SDK de alto rendimiento y totalmente personalizable
 
@@ -49,13 +49,31 @@ Univer no es solo un visor de archivos de hojas de cálculo. Es un framework par
 
 En la [familia de productos Univer](https://univer.ai/), las herramientas ofimáticas comparten un entorno de ejecución para almacenamiento y cálculo. El contenido se puede combinar e integrar entre herramientas, y los datos y las referencias vinculados se actualizan junto con sus fuentes. Las personas y los agentes de IA pueden trabajar en los mismos archivos. Consulta la [matriz de capacidades](https://univer.ai/capabilities) para conocer los productos y [Open Source y Pro](#-open-source-y-pro) para conocer el alcance de este repositorio.
 
+### Crea una herramienta colaborativa con Univer Office SDK
+
+[![Crea una herramienta colaborativa con Univer Office SDK](https://i.ytimg.com/vi/1p-SMEiK6Kg/maxresdefault.jpg)](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
+[Ver la demo](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
 ## Proyectos creados con Univer Office SDK
+
+### Ejemplo destacado: Univer Workspace
+
+[Univer Workspace](https://github.com/dream-num/univer-workspace) es un espacio de trabajo de código abierto, creado con Univer Office SDK y que se puede alojar en infraestructura propia, donde las personas y los agentes de IA crean, colaboran y revisan contenido ofimático. Los desarrolladores pueden usar la implementación completa como referencia, aprender a integrar el SDK y crear sus propios productos.
+
+[![Una miniaplicación de Workspace junto a su hoja de cálculo vinculada, con métricas, gráficos y controles vinculados a las celdas](../img/workspace-mini-app.png)](https://github.com/dream-num/univer-workspace)
+
+- Los agentes pueden generar miniaplicaciones basadas en hojas de cálculo, como paneles para la toma de decisiones, informes interactivos y paneles de negocio.
+- Las métricas, los gráficos y los controles de la página web están vinculados a celdas y permiten leer y escribir datos, así como actualizarlos de forma colaborativa.
+
+[Explorar Univer Workspace](https://github.com/dream-num/univer-workspace)
+
+### Otros ejemplos
 
 Estos proyectos de código abierto están creados con Univer Office SDK:
 
 | Proyecto | Descripción |
 | --- | --- |
-| [Univer Workspace](https://github.com/dream-num/univer-workspace) | Un espacio de trabajo ofimático para personas y agentes de IA, con edición compartida y revisión de los cambios de los agentes. |
 | [Univer Office for DeepSeek Harness](https://github.com/dream-num/dsh-univer-office) | Un plugin ofimático para DeepSeek Harness con contenido conectado, validación y worktrees aislados para la colaboración entre agentes. |
 | [Univer CLI](https://github.com/dream-num/univer-cli) | Un espacio de trabajo local en la línea de comandos para que los agentes creen, editen, inspeccionen y entreguen contenido ofimático. |
 | [Univer Office for WorkBuddy](https://github.com/dream-num/workbuddy-univer-office) | Una integración ofimática local para WorkBuddy con vistas previas MCP y revisión de borradores. Versión preliminar de desarrollo. |
@@ -273,12 +291,12 @@ Para expectativas de compatibilidad de API, APIs experimentales, APIs internas y
 | --- | --- | --- |
 | **Sheets** | Libros, hojas, rangos, selección, fórmulas, formato numérico, filtros, ordenación, validación de datos, formato condicional, hipervínculos, comentarios, buscar y reemplazar, notas, tablas, integración de dibujo y plugins de UI extensibles. | Colaboración en tiempo real, historial de edición, importación/exportación, impresión, gráficos, tablas dinámicas, sparklines, esquemas, formas, gráficos dentro de celdas, conectores de datos, cálculo del lado del servidor y funciones de fórmulas mejoradas. |
 | **Docs** | Modelo de documento enriquecido, UI de edición, listas, hipervínculos, integración de dibujo, comentarios, inserción rápida y arquitectura compartida de documentos. | Colaboración, importación/exportación, impresión, tablas y listas mejoradas, columnas, callouts, bloques de código, citas, formas y recursos remotos de comentarios. |
-| **Slides** | Modelo de datos de presentaciones y paquetes de UI en desarrollo activo. | Modelo y UI Pro para presentaciones, importación/exportación de slides, plugins de modelo/UI para gráficos y tablas, e infraestructura compartida de edición de formas. |
+| **Slides** | Modelo de datos de presentaciones y paquetes de UI de edición. | Modelo y UI Pro para presentaciones, importación/exportación de slides, plugins de modelo/UI para gráficos y tablas, e infraestructura compartida de edición de formas. |
 | **Bases** | Experiencias de datos estructurados personalizadas sobre la arquitectura de plugins, comandos y modelos de Univer. | Modelo de base de datos Base, comandos, integración de fórmulas, UI de workbench, editores de campos y vistas del motor de renderizado. |
 | **Runtime** | Aplicaciones en navegador, uso headless en Node.js, patrones Web Worker/RPC, múltiples instancias y automatización orientada al servidor. | Paquetes de cliente/servidor de colaboración, cliente de colaboración para Node.js, servicios Pro de servidor, SSR, delegación de cómputo, cálculo del lado del servidor y herramientas de replay de changesets. |
 | **Integrations** | React, Vue, Web Components, plantillas de frameworks, temas, localización y plugins personalizados. | Presets Pro y paquetes de despliegue empresarial. |
 
-Sheets es actualmente la superficie de producto más madura. Docs y Slides comparten la arquitectura de Univer y siguen evolucionando dentro del mismo SDK.
+Sheets, Docs y Slides ofrecen edición de hojas de cálculo, documentos y presentaciones sobre la arquitectura compartida de Univer, con un sistema de plugins, un sistema de comandos y una API Facade coherentes.
 
 ## 🔓 Open Source y Pro
 
@@ -293,7 +311,9 @@ Este repositorio contiene el núcleo open source de Univer y plugins OSS de prim
 | **Bases** | Arquitectura de plugins extensible para productos personalizados centrados en datos. | Modelo core de base de datos Base, comandos, mutations, integración de fórmulas, UI de workbench, editores de campos e integración con el motor de renderizado. |
 | **Servidor y runtime** | Runtime headless en Node.js, patrones RPC/Web Worker y primitivas de automatización orientada al servidor. | Servidor de colaboración, cliente de colaboración para Node.js, servicios SSR, delegación de cómputo, cálculo del lado del servidor y herramientas de replay de changesets de colaboración. |
 
-Las funciones Pro están documentadas en la [guía de Univer Pro](https://docs.univer.ai/guides/pro). Se separan aquí intencionalmente para que el alcance OSS sea claro.
+Las funciones del editor se documentan en las [guías del Web SDK](https://docs.univer.ai/guides/sheets). Para la integración del backend, consulta los capítulos del Server SDK sobre [colaboración](https://docs.univer.ai/server/collaboration/overview) e [importación y exportación de archivos](https://docs.univer.ai/server/import-export).
+
+Para consultas sobre licencias comerciales y compras, [ponte en contacto con nosotros](https://univer.ai/#contact). Consulta la [configuración de licencias](https://docs.univer.ai/server/license) para configurar una licencia en tu aplicación.
 
 Principios de separación:
 
@@ -307,7 +327,7 @@ Principios de separación:
 - **Core SDK**: [`dream-num/univer`](https://github.com/dream-num/univer), este monorepo.
 - **Presets**: los [`presets/`](../../presets) de este repositorio, colecciones de plugins para aplicaciones en navegador y Node.js.
 - **AI agent skills**: [`dream-num/univer-sdk-skills`](https://github.com/dream-num/univer-sdk-skills), instrucciones reutilizables para agentes de IA que trabajan con integración de Univer, funciones Pro, desarrollo de plugins y backends Node. Consulta la [guía de AI Skills](https://docs.univer.ai/guides/skills).
-- **Documentación**: [docs.univer.ai](https://docs.univer.ai), con guías de Sheets, Docs, Slides, recipes y Pro.
+- **Documentación**: [docs.univer.ai](https://docs.univer.ai), con guías de Web SDK, Server SDK y AI SDK, además de la referencia de la API.
 - **Web SDK**: [editores integrables y procesamiento sin interfaz](https://docs.univer.ai/guides/sheets) en el navegador y en Node.js.
 - **Server SDK**: [colaboración y conversión de archivos](https://docs.univer.ai/server), integradas con el almacenamiento, la autenticación y los permisos de tu aplicación.
 - **AI SDK**: [flujos de agentes](https://docs.univer.ai/ai) para inspeccionar, editar y verificar contenido ofimático.

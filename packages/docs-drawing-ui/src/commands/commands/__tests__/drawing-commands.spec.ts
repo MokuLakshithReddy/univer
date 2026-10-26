@@ -63,7 +63,12 @@ import {
 } from '@univerjs/docs-drawing';
 import { DocSelectionRenderService } from '@univerjs/docs-ui';
 import { DrawingManagerService, IDrawingManagerService } from '@univerjs/drawing';
-import { DocumentEditArea, IRenderManagerService, RenderManagerService } from '@univerjs/engine-render';
+import {
+    DocumentEditArea,
+    DocumentSkeletonPageType,
+    IRenderManagerService,
+    RenderManagerService,
+} from '@univerjs/engine-render';
 import { BehaviorSubject } from 'rxjs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createDocUiTestBed } from '../../../__tests__/create-doc-ui-test-bed';
@@ -1073,8 +1078,14 @@ describe('docs drawing commands integration', () => {
                     skeDrawings: new Map(),
                     skeTables: new Map([
                         ['table-1', {
+                            tableId: 'table-1',
+                            left: 0,
+                            top: 0,
                             rows: [{
+                                top: 0,
                                 cells: [{
+                                    type: DocumentSkeletonPageType.CELL,
+                                    left: 0,
                                     marginTop: 4,
                                     marginLeft: 5,
                                     skeDrawings: new Map([
@@ -1130,6 +1141,7 @@ describe('docs drawing commands integration', () => {
 
     it('updates drawing behind-text wrapping and keeps the anchor position in page coordinates', async () => {
         const docData = createDrawingDocData();
+        docData.drawings!['shape-1'].layoutType = PositionedObjectLayoutType.INLINE;
         docData.drawings!['shape-1'].docTransform = {
             positionH: {
                 relativeFrom: ObjectRelativeFromH.MARGIN,

@@ -17,7 +17,6 @@
 import type { Workbook } from '@univerjs/core';
 import type { IDropdownMenuProps, IDropdownProps, ITooltipProps } from '@univerjs/design';
 import type { ComponentType, ReactNode } from 'react';
-import type { IMenuItem, IValueOption } from '../../../services/menu/menu';
 import { FOCUSING_SHEET, IContextService, IUniverInstanceService, UniverInstanceType } from '@univerjs/core';
 import {
     clsx,
@@ -39,12 +38,14 @@ import {
     useState,
 } from 'react';
 import { combineLatest, map, merge, of, scan, startWith, switchMap } from 'rxjs';
+import type { IMenuItem, IValueOption } from '../../../services/menu/menu';
 import { ILayoutService } from '../../../services/layout/layout.service';
 import { IMenuManagerService } from '../../../services/menu/menu-manager.service';
 import { IShortcutService } from '../../../services/shortcut/shortcut.service';
 import { useDependency, useObservable } from '../../../utils/di';
 import { getEmbedBoundaryOwner, keepInteractionInsideSameEmbedBoundary } from '../../../utils/embed-boundary';
 import { CustomLabel } from '../../custom-label/CustomLabel';
+import { FONT_FAMILY_ITEM_COMPONENT } from '../../font-family/FontFamilyItem';
 
 const TooltipWrapperContext = createContext({
     dropdownVisible: false,
@@ -264,10 +265,6 @@ export function DropdownMenuLabel({ icon, value, option, preserveStrokeWidth, on
     );
 }
 
-function getOptionKey(option: IValueOption) {
-    return String(option.id ?? option.commandId ?? option.value ?? (typeof option.label === 'string' ? option.label : option.label?.name));
-}
-
 export function DropdownMenuWrapper({
     menuId,
     slot,
@@ -457,6 +454,10 @@ export function DropdownMenuWrapper({
         keepInteractionInsideSameEmbedBoundary(event);
     }
 
+    function getOptionKey(option: IValueOption) {
+        return String(option.id ?? option.commandId ?? option.value ?? (typeof option.label === 'string' ? option.label : option.label?.name));
+    }
+
     function handleOptionSelect(option: IValueOption) {
         const target = sheetTarget;
         if (target && target !== sheetTargetRef.current) {
@@ -505,9 +506,10 @@ export function DropdownMenuWrapper({
         const items: IDropdownMenuProps['items'] = options.map((option) => ({
             type: 'item',
             className: clsx({
-                'focus:univer-bg-gray-0 dark:focus:!univer-bg-gray-800':
+                'focus:univer-bg-transparent dark:focus:!univer-bg-transparent':
                     typeof option.label !== 'string' && option.label?.hoverable === false,
-                '!univer-p-0': isSingleEmbeddedCustomPanel,
+                '!univer-p-0': isSingleEmbeddedCustomPanel ||
+                    (typeof option.label === 'object' && option.label.name === FONT_FAMILY_ITEM_COMPONENT),
             }),
             children: (
                 <DropdownMenuLabel

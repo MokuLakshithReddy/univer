@@ -1,9 +1,9 @@
 {
     "name": "univer",
     "type": "module",
-    "version": "1.0.0-rc.0",
+    "version": "1.2.0",
     "private": true,
-    "packageManager": "pnpm@12.5.1",
+    "packageManager": "pnpm@12.14.0",
     "author": "DreamNum Co., Ltd. <developer@univer.ai>",
     "license": "Apache-2.0",
     "funding": {
@@ -68,7 +68,7 @@
         "tailwindcss": "3.4.18",
         "turbo": "^2.10.12",
         "typescript": "^6.0.3",
-        "vitest": "^5.0.0"
+        "vitest": "^5.0.4"
     },
     "lint-staged": {
         "*": "eslint --fix"

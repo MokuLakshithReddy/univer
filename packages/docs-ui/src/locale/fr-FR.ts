@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Collage spécial',
             title: 'Options de collage',
             source: 'Conserver la mise en forme source',
             destination: 'Adapter à la mise en forme de destination',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Restauration de la mise en page du document…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Plein écran',
             font: 'Police',
             fontSize: 'Taille de la police',
             bold: 'Gras',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Supprimer le tableau',
         },
         headerFooter: {
+            navigation: 'Navigation',
+            options: 'Options',
+            position: 'Position',
+            refreshFields: 'Mettre à jour les champs',
+            pageNumber: 'Numéro de page',
+            currentPage: 'Page actuelle',
+            totalPages: 'Nombre total de pages',
+            dateTime: 'Date et heure',
+            updateAutomatically: 'Mettre à jour automatiquement',
+            insertFailed: 'Le document a changé ou ne peut pas être modifié. Fermez cette boîte de dialogue et réessayez.',
+            goToHeader: 'Aller à l’en-tête',
+            goToFooter: 'Aller au pied de page',
+
             linkToPrevious: 'Lier au précédent',
             header: 'En-tête',
             footer: 'Pied de page',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Diminuer le retrait',
             defaultTextColor: 'Couleur de texte par défaut',
             noBackground: 'Aucun arrière-plan',
+        },
+        heading: {
+            collapse: 'Réduire',
+            expand: 'Développer',
         },
         'page-settings': {
             'document-setting': 'Paramètres du document',

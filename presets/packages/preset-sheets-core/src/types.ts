@@ -36,6 +36,16 @@ export interface IUniverDocsPresetConfig extends
 }
 
 export interface IUniverSheetsPresetConfig extends
-    Pick<IUniverSheetsConfig, 'isRowStylePrecedeColumnStyle' | 'autoHeightForMergedCells' | 'freezeSync'>,
-    Pick<IUniverSheetsUIConfig, 'maxAutoHeightCount' | 'clipboardConfig' | 'scrollConfig' | 'protectedRangeShadow' | 'protectedRangeUserSelector' | 'disableForceStringAlert' | 'disableForceStringMark'> {
+    Pick<IUniverSheetsConfig, 'isRowStylePrecedeColumnStyle' | 'autoHeightForMergedCells' | 'freezeSync' | 'textLineGap'>,
+    Pick<
+        IUniverSheetsUIConfig,
+        'maxAutoHeightCount'
+        | 'clipboardConfig'
+        | 'scrollConfig'
+        | 'protectedRangeShadow'
+        | 'protectedRangeUserSelector'
+        | 'disableForceStringAlert'
+        | 'disableForceStringMark'
+        | 'allowArrowKeyWrapOnSheetBoundary'
+    > {
 }

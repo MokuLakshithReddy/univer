@@ -22,6 +22,7 @@ import type {
     IRange,
     IRowData,
     IUnitRange,
+    IWorkbookCalculationSettings,
     Nullable,
     ObjectMatrix,
     Styles,
@@ -250,6 +251,12 @@ export interface IUnitRowData {
 }
 
 export interface IFormulaDatasetConfig {
+    /** Recalculate iteration-sensitive groups and their dependents in these workbooks. */
+    dirtyIterationUnits?: string[];
+    /** Snapshot replay limits calculation to affected cycles and their required precedents. */
+    calculateCircularOnly?: boolean;
+    /** Finalize replay by calculating ordinary formulas without advancing complete circular caches. */
+    preserveCircularUnits?: string[];
     formulaData: IFormulaData;
     arrayFormulaCellData: IArrayFormulaUnitCellType;
     arrayFormulaRange: IArrayFormulaRangeType;
@@ -267,7 +274,7 @@ export interface IFormulaDatasetConfig {
     unitSheetNameMap?: IUnitSheetNameMap;
     unitNameMap?: IFormulaUnitNameMap;
     externalReferences?: IFormulaExternalReferences;
-    maxIteration?: number;
+    calculationSettings?: Record<string, IWorkbookCalculationSettings>;
     isCalculateTreeModel?: boolean;
     rowData?: IUnitRowData; // Include rows hidden by filters
 }

@@ -80,6 +80,8 @@ export interface IInnerPasteCommandParams {
     unitId?: string;
     segmentId: string;
     doc: Partial<IDocumentData>;
+    /** Ranges to replace, without changing the selection recorded for undo. */
+    selections?: ITextRangeWithStyle[];
     textRanges: ITextRangeWithStyle[];
     customRangeMappings?: IDocClipboardPasteCustomRangeMapping[];
 }
@@ -110,7 +112,7 @@ export const InnerPasteCommand: ICommand<IInnerPasteCommandParams> = {
                 ? currentSelection
                 : { unitId: targetUnitId, subUnitId: targetUnitId };
         }
-        const selections = docSelectionManagerService.getTextRanges(selectionParams) ?? [];
+        const selections = params.selections ?? docSelectionManagerService.getTextRanges(selectionParams) ?? [];
         const rectRanges = docSelectionManagerService.getRectRanges(selectionParams) ?? [];
         const selectionInfo = docSelectionManagerService.getSelectionInfo(selectionParams);
         const { body: sourceBody, tableSource, drawings } = doc;
@@ -939,13 +941,19 @@ export const CutContentCommand: ICommand<IInnerCutCommandParams> = {
         }
 
         const viewModel = docSkeletonManagerService.getViewModel();
+        const body = docDataModel.getSelfOrHeaderFooterModel(segmentId)?.getBody();
+        const clearsBody = wholeBodySelected || (body != null && isWholeBodySelected(selections, rectRanges, body));
 
         const doMutation: IMutationInfo<IRichTextEditingMutationParams> = {
             id: RichTextEditingMutation.id,
             params: {
                 unitId,
                 actions: [],
-                textRanges,
+                // Whole-document selection can contain several ranges with the last one active.
+                // Clearing the body must place the caret at its new start, not that last range.
+                textRanges: clearsBody
+                    ? [{ ...textRanges[0], startOffset: 0, endOffset: 0, collapsed: true }]
+                    : textRanges,
                 trigger: CutContentCommand.id,
             },
         };

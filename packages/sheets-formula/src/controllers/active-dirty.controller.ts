@@ -56,6 +56,7 @@ import {
     SetRowHiddenMutation,
     SetRowVisibleMutation,
     SetStyleCommand,
+    SetWorkbookCalculationSettingsMutation,
 } from '@univerjs/sheets';
 
 export class ActiveDirtyController extends Disposable {
@@ -87,6 +88,16 @@ export class ActiveDirtyController extends Disposable {
                 const params = command.params as ISetRangeValuesMutationParams;
                 return {
                     dirtyRanges: this._getSetRangeValuesMutationDirtyRange(params),
+                };
+            },
+        });
+
+        this._activeDirtyManagerService.register(SetWorkbookCalculationSettingsMutation.id, {
+            commandId: SetWorkbookCalculationSettingsMutation.id,
+            getDirtyData: (command: ICommandInfo) => {
+                const { unitId } = command.params as { unitId: string };
+                return {
+                    dirtyIterationUnits: [unitId],
                 };
             },
         });

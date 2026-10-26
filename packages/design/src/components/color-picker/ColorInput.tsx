@@ -39,7 +39,8 @@ function HexInput({ hsv, onChange }: IInputProps) {
     const hexValue = useMemo(() => hsvToHex(hsv[0], hsv[1], hsv[2]), [hsv]);
 
     useEffect(() => {
-        setInputValue(hexValue.replace(/^#/, ''));
+        const value = hexValue.replace(/^#/, '');
+        setInputValue((current) => current.toLowerCase() === value.toLowerCase() ? current : value);
     }, [hexValue]);
 
     const isValidHex = (hex: string) => {
@@ -49,9 +50,13 @@ function HexInput({ hsv, onChange }: IInputProps) {
     const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
         const newValue = e.target.value.trim();
 
-        if (newValue.length > 6) return;
+        if (newValue.length > 6) {
+            return;
+        }
 
-        if (newValue !== '' && !/^[0-9A-Fa-f]*$/.test(newValue)) return;
+        if (newValue !== '' && !/^[0-9A-Fa-f]*$/.test(newValue)) {
+            return;
+        }
 
         setInputValue(newValue);
 
@@ -73,7 +78,7 @@ function HexInput({ hsv, onChange }: IInputProps) {
         <>
             <input
                 className={clsx(`
-                  univer-w-full univer-px-2 !univer-pl-4 univer-uppercase
+                  univer-w-full univer-min-w-0 univer-px-2 !univer-pl-4 univer-uppercase
                   focus:univer-border-primary-500 focus:univer-outline-none
                   rtl:!univer-pl-2 rtl:!univer-pr-4
                   dark:!univer-text-gray-0
@@ -81,7 +86,16 @@ function HexInput({ hsv, onChange }: IInputProps) {
                 value={inputValue}
                 onChange={handleChange}
                 onBlur={handleBlur}
+                onPaste={(event) => {
+                    const pastedValue = event.clipboardData.getData('text').trim();
+                    if (!/^#[0-9A-Fa-f]{6}$/.test(pastedValue)) return;
+                    event.preventDefault();
+                    const hex = pastedValue.slice(1);
+                    setInputValue(hex);
+                    onChange?.(...hexToHsv(hex));
+                }}
                 maxLength={6}
+                aria-label="HEX"
                 spellCheck={false}
             />
             <span
@@ -114,7 +128,7 @@ function RgbInput({ hsv, alpha, format, onChange }: IInputProps) {
         if (color === 'a') {
             if (value !== '' && !/^\d*\.?\d*$/.test(value)) return;
             const numValue = value === '' ? 0 : Number.parseFloat(value);
-            if (numValue > 1) return;
+            if (!Number.isFinite(numValue) || numValue > 1) return;
             const newValues = { ...localValues, a: numValue };
             setLocalValues(newValues);
             if (onChange) {
@@ -158,18 +172,21 @@ function RgbInput({ hsv, alpha, format, onChange }: IInputProps) {
             `}
         >
             <input
+                aria-label="R"
                 value={localValues.r}
                 onChange={(e) => handleChange('r', e.target.value)}
                 onBlur={handleBlur}
                 maxLength={3}
             />
             <input
+                aria-label="G"
                 value={localValues.g}
                 onChange={(e) => handleChange('g', e.target.value)}
                 onBlur={handleBlur}
                 maxLength={3}
             />
             <input
+                aria-label="B"
                 value={localValues.b}
                 onChange={(e) => handleChange('b', e.target.value)}
                 onBlur={handleBlur}
@@ -177,6 +194,7 @@ function RgbInput({ hsv, alpha, format, onChange }: IInputProps) {
             />
             {format === 'rgba' && (
                 <input
+                    aria-label="A"
                     value={localValues.a}
                     onChange={(e) => handleChange('a', e.target.value)}
                     onBlur={handleBlur}
@@ -191,12 +209,12 @@ export function ColorInput({ hsv, alpha, format, onChange }: IColorInputProps) {
     return (
         <div
             className={`
-              dark:![&_input]:univer-border-gray-600 dark:![&_input]:univer-text-gray-0
               univer-flex univer-gap-2
               [&_input]:univer-box-border [&_input]:univer-flex [&_input]:univer-h-7 [&_input]:univer-items-center
               [&_input]:univer-rounded [&_input]:univer-border [&_input]:univer-border-solid
               [&_input]:univer-border-gray-200 [&_input]:univer-bg-transparent [&_input]:univer-px-1.5
               [&_input]:univer-text-sm [&_input]:univer-text-gray-700 [&_input]:univer-outline-none
+              dark:[&_input]:!univer-border-gray-600 dark:[&_input]:!univer-text-gray-0
             `}
         >
             <div className="univer-relative univer-flex univer-flex-1 univer-gap-2">

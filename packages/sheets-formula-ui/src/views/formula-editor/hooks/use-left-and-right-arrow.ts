@@ -15,7 +15,17 @@
  */
 
 import type { Editor } from '@univerjs/docs-ui';
-import { CommandType, Direction, DisposableCollection, DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY, DOCS_NORMAL_EDITOR_UNIT_ID_KEY, FOCUSING_FX_BAR_EDITOR, generateRandomId, ICommandService, IContextService } from '@univerjs/core';
+import {
+    CommandType,
+    Direction,
+    DisposableCollection,
+    DOCS_FORMULA_BAR_EDITOR_UNIT_ID_KEY,
+    DOCS_NORMAL_EDITOR_UNIT_ID_KEY,
+    FOCUSING_FX_BAR_EDITOR,
+    generateRandomId,
+    ICommandService,
+    IContextService,
+} from '@univerjs/core';
 import { IEditorService, MoveCursorOperation, MoveSelectionOperation } from '@univerjs/docs-ui';
 import { DeviceInputEventType } from '@univerjs/engine-render';
 import { ExpandSelectionCommand, JumpOver, MoveSelectionCommand } from '@univerjs/sheets-ui';
@@ -77,7 +87,6 @@ export const useLeftAndRightArrow = (
     const getRefSelectionCountRef = useRef(getRefSelectionCount);
     getRefSelectionCountRef.current = getRefSelectionCount;
 
-    // eslint-disable-next-line max-lines-per-function
     useEffect(() => {
         if (!editor || !isNeed) {
             return;
@@ -110,11 +119,11 @@ export const useLeftAndRightArrow = (
             }
 
             if (metaKey === MetaKeys.SHIFT) {
-                commandService.executeCommand(MoveSelectionOperation.id, {
+                return commandService.syncExecuteCommand(MoveSelectionOperation.id, {
                     direction,
                 });
             } else {
-                commandService.executeCommand(MoveCursorOperation.id, {
+                return commandService.syncExecuteCommand(MoveCursorOperation.id, {
                     direction,
                 });
             }
@@ -132,37 +141,40 @@ export const useLeftAndRightArrow = (
                 direction = Direction.RIGHT;
             }
             if (shouldMoveSelectionRef.current) {
+                const refSelectionCount = getRefSelectionCountRef.current?.() ?? 0;
                 const fromCurrentSelection = shouldMoveFormulaSelectionFromCurrentSelection(
                     shouldMoveSelectionRef.current,
-                    getRefSelectionCountRef.current?.() ?? 0
+                    refSelectionCount
                 );
                 if (metaKey === MetaKeys.CTRL_COMMAND) {
-                    commandService.executeCommand(MoveSelectionCommand.id, {
+                    return commandService.executeCommand(MoveSelectionCommand.id, {
                         direction,
                         jumpOver: JumpOver.moveGap,
                         extra: 'formula-editor',
                         fromCurrentSelection,
                     });
                 } else if (metaKey === MetaKeys.SHIFT) {
-                    commandService.executeCommand(ExpandSelectionCommand.id, {
+                    return commandService.executeCommand(ExpandSelectionCommand.id, {
                         direction,
                         extra: 'formula-editor',
+                        fromCurrentSelection: refSelectionCount === 0,
                     });
                 } else if (metaKey === (MetaKeys.CTRL_COMMAND | MetaKeys.SHIFT)) {
-                    commandService.executeCommand(ExpandSelectionCommand.id, {
+                    return commandService.executeCommand(ExpandSelectionCommand.id, {
                         direction,
                         jumpOver: JumpOver.moveGap,
                         extra: 'formula-editor',
+                        fromCurrentSelection: refSelectionCount === 0,
                     });
                 } else {
-                    commandService.executeCommand(MoveSelectionCommand.id, {
+                    return commandService.executeCommand(MoveSelectionCommand.id, {
                         direction,
                         extra: 'formula-editor',
                         fromCurrentSelection,
                     });
                 }
             } else {
-                handleMoveInEditor(keycode, metaKey);
+                return handleMoveInEditor(keycode, metaKey);
             }
         };
 
@@ -171,7 +183,7 @@ export const useLeftAndRightArrow = (
             type: CommandType.OPERATION,
             handler(_event, params) {
                 const { keyCode, metaKey } = params as { eventType: DeviceInputEventType; keyCode: KeyCode; metaKey?: MetaKeys };
-                handleKeycode(keyCode, metaKey);
+                return handleKeycode(keyCode, metaKey);
             },
         }));
 
@@ -198,7 +210,9 @@ export const useLeftAndRightArrow = (
             return {
                 id: operationId,
                 binding: metaKey ? keyCode | metaKey : keyCode,
-                preconditions: shouldHandleShortcut,
+                // Text navigation uses the shared editor shortcuts; point mode owns reference movement.
+                preconditions: () => shouldHandleShortcut() &&
+                    (!(metaKey && (metaKey & MetaKeys.CTRL_COMMAND)) || Boolean(shouldMoveSelectionRef.current)),
                 priority: 900,
                 staticParameters: {
                     eventType: DeviceInputEventType.Keyboard,

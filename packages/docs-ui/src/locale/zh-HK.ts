@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: '選擇性貼上',
             title: '貼上選項',
             source: '保留來源格式',
             destination: '符合目標格式',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: '正在恢復文件排版…',
         },
         toolbar: {
+            zoom: '縮放',
+            fullscreen: '全螢幕',
             font: '字型',
             fontSize: '字號',
             bold: '粗體',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: '刪除表格',
         },
         headerFooter: {
+            navigation: '導覽',
+            options: '選項',
+            position: '位置',
+            refreshFields: '更新欄位',
+            pageNumber: '頁碼',
+            currentPage: '目前頁碼',
+            totalPages: '總頁數',
+            dateTime: '日期與時間',
+            updateAutomatically: '自動更新',
+            insertFailed: '文件已變更或無法編輯，請關閉對話框後重試。',
+            goToHeader: '移至頁首',
+            goToFooter: '移至頁尾',
+
             linkToPrevious: '連結到上一節',
             header: '頁眉',
             footer: '頁腳',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: '減少縮進',
             defaultTextColor: '預設文字顏色',
             noBackground: '無背景色',
+        },
+        heading: {
+            collapse: '收合',
+            expand: '展開',
         },
         'page-settings': {
             'document-setting': '文件設定',

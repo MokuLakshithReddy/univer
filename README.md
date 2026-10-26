@@ -4,7 +4,7 @@
 
 **The Office Harness for AI Agents**
 
-Spreadsheets · Documents · Presentations · Bases · Boards · PDFs (coming soon)
+Spreadsheets · Documents · Presentations · Bases · Boards · PDFs
 
 High-performance, fully customizable Office SDK
 
@@ -49,13 +49,31 @@ Univer is not a spreadsheet file viewer only. It is a framework for building you
 
 Across the [Univer product family](https://univer.ai/), Office tools share a runtime for storage and computation. Content can be composed and embedded across tools, with linked data and references updating together. People and AI agents can work in the same files. See the [capability matrix](https://univer.ai/capabilities) for product coverage and [Open Source and Pro](#-open-source-and-pro) for this repository's scope.
 
+### Build a collaborative tool with Univer Office SDK
+
+[![Build a collaborative tool with Univer Office SDK](https://i.ytimg.com/vi/1p-SMEiK6Kg/maxresdefault.jpg)](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
+[Watch the demo](https://www.youtube.com/watch?v=1p-SMEiK6Kg)
+
 ## Built with Univer Office SDK
+
+### Featured example: Univer Workspace
+
+[Univer Workspace](https://github.com/dream-num/univer-workspace) is an open-source, self-hostable workspace built on Univer Office SDK, where people and AI agents create, collaborate on, and review Office content. Developers can use the complete implementation as a reference, learn how to integrate the SDK, and build their own products.
+
+[![A Workspace mini-app beside its linked spreadsheet, with metrics, charts, and controls bound to cells](./docs/img/workspace-mini-app.png)](https://github.com/dream-num/univer-workspace)
+
+- Agents can generate spreadsheet-based mini-apps, such as decision-making dashboards, interactive reports, and business dashboards.
+- Metrics, charts, and controls on the web page are bound to cells, supporting data reads, writes, and collaborative updates.
+
+[Explore Univer Workspace](https://github.com/dream-num/univer-workspace)
+
+### Other examples
 
 These open-source projects are built with Univer Office SDK:
 
 | Project | Description |
 | --- | --- |
-| [Univer Workspace](https://github.com/dream-num/univer-workspace) | An Office workspace for people and AI agents, with shared editing and review of agent changes. |
 | [Univer Office for DeepSeek Harness](https://github.com/dream-num/dsh-univer-office) | An Office plugin for DeepSeek Harness with connected content, validation, and isolated worktrees for agent collaboration. |
 | [Univer CLI](https://github.com/dream-num/univer-cli) | A local command-line workspace for agents to create, edit, inspect, and deliver Office content. |
 | [Univer Office for WorkBuddy](https://github.com/dream-num/workbuddy-univer-office) | A local Office integration for WorkBuddy with MCP previews and draft review. Development preview. |
@@ -273,12 +291,12 @@ For API compatibility expectations, experimental APIs, internal APIs, and deprec
 | --- | --- | --- |
 | **Sheets** | Workbooks, worksheets, ranges, selection, formulas, number formatting, filtering, sorting, data validation, conditional formatting, hyperlinks, comments, find and replace, notes, tables, drawing integration, and extensible UI plugins. | Real-time collaboration, edit history, import/export, printing, charts, pivot tables, sparklines, outlines, shapes, in-cell graphics, data connectors, server-side calculation, and performance-enhanced formula features. |
 | **Docs** | Rich document model, editing UI, lists, hyperlinks, drawing integration, comments, quick insert, and shared document architecture. | Collaboration, import/export, printing, enhanced tables and lists, columns, callouts, code blocks, quotes, shapes, and remote comment resources. |
-| **Slides** | Presentation data model and UI packages under active development. | Pro slide model and UI, slide import/export, chart and table model/UI plugins, and shared shape-editing infrastructure. |
+| **Slides** | Presentation data model and editing UI packages. | Pro slide model and UI, slide import/export, chart and table model/UI plugins, and shared shape-editing infrastructure. |
 | **Bases** | Build custom structured-data experiences on top of Univer's plugin, command, and model architecture. | Base database model, commands, formula integration, workbench UI, field editors, and render-engine views. |
 | **Runtime** | Browser apps, Node.js headless usage, Web Worker/RPC patterns, multi-instance usage, and server-oriented automation. | Collaboration client/server packages, Node.js collaboration client, Pro server services, SSR, computing delegation, server-side calculation, and changeset replay tooling. |
 | **Integrations** | React, Vue, Web Components, framework templates, theming, localization, and custom plugins. | Pro presets and enterprise deployment packages. |
 
-Sheets are the most mature product surface today. Docs and Slides share Univer's architecture and continue to evolve in the same SDK.
+Sheets, Docs, and Slides provide spreadsheet, document, and presentation editing on Univer's shared architecture, with a consistent plugin system, command system, and Facade API.
 
 ## 🔓 Open Source and Pro
 
@@ -293,7 +311,9 @@ This repository contains Univer's open-source core and first-party OSS plugins. 
 | **Bases** | Extensible plugin architecture for custom data-centric products. | Base database core model, commands, mutations, formula integration, workbench UI, field editors, and render-engine integration. |
 | **Server and runtime** | Node.js headless runtime, RPC/Web Worker patterns, and server-oriented automation primitives. | Collaboration server, Node.js collaboration client, SSR services, computing delegation, server-side calculation, and collaboration changeset replay tooling. |
 
-Pro features are documented in the [Univer Pro guide](https://docs.univer.ai/guides/pro). They are intentionally separated here so the OSS package surface is clear.
+Editor features are documented in the [Web SDK guides](https://docs.univer.ai/guides/sheets). For backend integration, see the Server SDK chapters on [collaboration](https://docs.univer.ai/server/collaboration/overview) and [file import/export](https://docs.univer.ai/server/import-export).
+
+For commercial licensing and purchase enquiries, [contact us](https://univer.ai/#contact). See [license configuration](https://docs.univer.ai/server/license) to configure a license in your application.
 
 Boundary principles:
 
@@ -307,7 +327,7 @@ Boundary principles:
 - **Core SDK**: [`dream-num/univer`](https://github.com/dream-num/univer), this monorepo.
 - **Presets**: this repository's [`presets/`](./presets), curated plugin collections for browser and Node.js apps.
 - **AI agent skills**: [`dream-num/univer-sdk-skills`](https://github.com/dream-num/univer-sdk-skills), reusable instructions for AI agents working with Univer integration, Pro features, plugin development, and Node backends. See the [AI Skills guide](https://docs.univer.ai/guides/skills).
-- **Documentation**: [docs.univer.ai](https://docs.univer.ai), including Sheets, Docs, Slides, recipes, and Pro guides.
+- **Documentation**: [docs.univer.ai](https://docs.univer.ai), including Web SDK, Server SDK, and AI SDK guides and the API reference.
 - **Web SDK**: [embedded editors and headless processing](https://docs.univer.ai/guides/sheets) in the browser and Node.js.
 - **Server SDK**: [collaboration and file conversion](https://docs.univer.ai/server), integrated with your application's storage, identity, and permissions.
 - **AI SDK**: [agent workflows](https://docs.univer.ai/ai) for inspecting, editing, and verifying Office content.

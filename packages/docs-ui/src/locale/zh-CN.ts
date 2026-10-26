@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: '选择性粘贴',
             title: '粘贴选项',
             source: '保留源格式',
             destination: '匹配目标格式',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: '正在恢复文档排版…',
         },
         toolbar: {
+            zoom: '缩放',
+            fullscreen: '全屏',
             font: '字体',
             fontSize: '字号',
             bold: '粗体',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: '删除表格',
         },
         headerFooter: {
+            navigation: '导航',
+            options: '选项',
+            position: '位置',
+            refreshFields: '更新域',
+            pageNumber: '页码',
+            currentPage: '当前页码',
+            totalPages: '总页数',
+            dateTime: '日期和时间',
+            updateAutomatically: '自动更新',
+            insertFailed: '文档已发生变化或不可编辑，请关闭对话框后重试。',
+            goToHeader: '转到页眉',
+            goToFooter: '转到页脚',
+
             linkToPrevious: '链接到上一节',
             header: '页眉',
             footer: '页脚',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: '减少缩进',
             defaultTextColor: '默认文字颜色',
             noBackground: '无背景色',
+        },
+        heading: {
+            collapse: '收起',
+            expand: '展开',
         },
         'page-settings': {
             'document-setting': '页面设置',

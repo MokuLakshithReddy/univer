@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Prilepiť špeciálne',
             title: 'Možnosti prilepenia',
             source: 'Zachovať zdrojové formátovanie',
             destination: 'Prispôsobiť cieľovému formátovaniu',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Obnovuje sa rozloženie dokumentu…',
         },
         toolbar: {
+            zoom: 'Priblíženie',
+            fullscreen: 'Celá obrazovka',
             font: 'Písmo',
             fontSize: 'Veľkosť písma',
             bold: 'Tučné',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Odstrániť tabuľku',
         },
         headerFooter: {
+            navigation: 'Navigácia',
+            options: 'Možnosti',
+            position: 'Poloha',
+            refreshFields: 'Aktualizovať polia',
+            pageNumber: 'Číslo strany',
+            currentPage: 'Aktuálna strana',
+            totalPages: 'Celkový počet strán',
+            dateTime: 'Dátum a čas',
+            updateAutomatically: 'Aktualizovať automaticky',
+            insertFailed: 'Dokument sa zmenil alebo ho nemožno upraviť. Zatvorte dialóg a skúste to znova.',
+            goToHeader: 'Prejsť na hlavičku',
+            goToFooter: 'Prejsť na pätu',
+
             linkToPrevious: 'Prepojiť s predchádzajúcim',
             header: 'Hlavička',
             footer: 'Päta',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Zmenšiť odsadenie',
             defaultTextColor: 'Predvolená farba textu',
             noBackground: 'Bez pozadia',
+        },
+        heading: {
+            collapse: 'Zbaliť',
+            expand: 'Rozbaliť',
         },
         'page-settings': {
             'document-setting': 'Nastavenia dokumentu',

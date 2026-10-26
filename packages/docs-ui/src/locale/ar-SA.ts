@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'لصق خاص',
             title: 'خيارات اللصق',
             source: 'الاحتفاظ بتنسيق المصدر',
             destination: 'مطابقة تنسيق الوجهة',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'جارٍ استعادة تخطيط المستند…',
         },
         toolbar: {
+            zoom: 'التكبير والتصغير',
+            fullscreen: 'ملء الشاشة',
             font: 'خط',
             fontSize: 'حجم الخط',
             bold: 'غامق',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'حذف الجدول',
         },
         headerFooter: {
+            navigation: 'التنقل',
+            options: 'الخيارات',
+            position: 'الموضع',
+            refreshFields: 'تحديث الحقول',
+            pageNumber: 'رقم الصفحة',
+            currentPage: 'الصفحة الحالية',
+            totalPages: 'إجمالي الصفحات',
+            dateTime: 'التاريخ والوقت',
+            updateAutomatically: 'تحديث تلقائي',
+            insertFailed: 'تغير المستند أو لا يمكن تحريره. أغلق مربع الحوار وحاول مرة أخرى.',
+            goToHeader: 'انتقال إلى الرأس',
+            goToFooter: 'انتقال إلى التذييل',
+
             linkToPrevious: 'ارتباط بالسابق',
             header: 'رأس',
             footer: 'تذييل',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'تقليل المسافة البادئة',
             defaultTextColor: 'لون النص الافتراضي',
             noBackground: 'بدون خلفية',
+        },
+        heading: {
+            collapse: 'طي',
+            expand: 'توسيع',
         },
         'page-settings': {
             'document-setting': 'إعداد المستند',

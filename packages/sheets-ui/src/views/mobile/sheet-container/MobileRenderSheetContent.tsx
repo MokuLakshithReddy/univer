@@ -17,5 +17,5 @@
 import { RenderSheetContent } from '../../sheet-container/SheetContainer';
 
 export function MobileRenderSheetContent() {
-    return <RenderSheetContent AutoFillPopupMenuComponent={null} />;
+    return <RenderSheetContent />;
 }

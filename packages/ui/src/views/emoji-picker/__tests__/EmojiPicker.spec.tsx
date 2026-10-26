@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-import type { ILocalStorageService as ILocalStorageServiceType } from '@univerjs/core';
 import type { ComponentType, ReactElement } from 'react';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { ILocalStorageService, Injector, LocaleService, LocaleType } from '@univerjs/core';
-import { scrollbarClassName } from '@univerjs/design';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import enUS from '../../../locale/en-US';
+import zhCN from '../../../locale/zh-CN';
 import { connectInjector } from '../../../utils/di';
 import { SymbolPicker } from '../../symbol-picker/SymbolPicker';
 import { EmojiPicker } from '../EmojiPicker';
 
-class TestLocalStorageService implements ILocalStorageServiceType {
+class TestLocalStorageService implements ILocalStorageService {
     async getItem<T>(): Promise<T | null> {
         return null;
     }
@@ -59,14 +58,14 @@ class TestResizeObserver {
     unobserve(): void {}
 }
 
-function renderWithDependencies(element: ReactElement) {
+function renderWithDependencies(element: ReactElement, locale = LocaleType.EN_US) {
     const injector = new Injector();
     injector.add([LocaleService]);
     injector.add([ILocalStorageService, { useClass: TestLocalStorageService }]);
 
     const localeService = injector.get(LocaleService);
-    localeService.load({ [LocaleType.EN_US]: enUS });
-    localeService.setLocale(LocaleType.EN_US);
+    localeService.load({ [LocaleType.EN_US]: enUS, [LocaleType.ZH_CN]: zhCN });
+    localeService.setLocale(locale);
 
     const ConnectedTestRoot = connectInjector(() => element, injector) as ComponentType;
     return render(<ConnectedTestRoot />);
@@ -130,13 +129,16 @@ describe('picker callbacks', () => {
         });
     });
 
-    it('uses the design scrollbar styles for emoji content', () => {
-        const { container } = renderWithDependencies(<EmojiPicker />);
-        const scrollContainer = container.querySelector('.univer-overflow-y-auto');
+    it('finds localized titles and aliases with the compact locale data', async () => {
+        const onChange = vi.fn();
+        const { getByRole } = renderWithDependencies(<EmojiPicker onChange={onChange} />, LocaleType.ZH_CN);
 
-        for (const className of scrollbarClassName.split(' ')) {
-            expect(scrollContainer?.classList.contains(className)).toBe(true);
+        for (const query of ['主意', '灯泡']) {
+            fireEvent.change(getByRole('textbox'), { target: { value: query } });
+            await waitFor(() => expect(getByRole('button', { name: '灯泡' })).toBeTruthy());
         }
+        fireEvent.click(getByRole('button', { name: '灯泡' }));
+        expect(onChange).toHaveBeenCalledWith('💡');
     });
 
     it('keeps the mounted emoji buttons bounded while scrolling', async () => {
@@ -158,14 +160,5 @@ describe('picker callbacks', () => {
         fireEvent.click(getByRole('button', { name: '∞' }));
 
         expect(onChange).toHaveBeenCalledWith('∞');
-    });
-
-    it('uses the design scrollbar styles for symbol content', () => {
-        const { container } = renderWithDependencies(<SymbolPicker />);
-        const scrollContainer = container.querySelector('.univer-overflow-y-auto');
-
-        for (const className of scrollbarClassName.split(' ')) {
-            expect(scrollContainer?.classList.contains(className)).toBe(true);
-        }
     });
 });

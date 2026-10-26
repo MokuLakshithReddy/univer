@@ -27,9 +27,13 @@ import type {
     ITextSelectionStyle,
     Scene,
 } from '@univerjs/engine-render';
-import type { IDocRange } from './range-interface';
 import { DataStreamTreeNodeType, RANGE_DIRECTION, Tools } from '@univerjs/core';
-import { DocumentSkeletonPageType, getDocumentSkeletonColumnPagePathInfo, getOffsetRectForDom } from '@univerjs/engine-render';
+import {
+    DocumentSkeletonPageType,
+    getDocumentSkeletonColumnPagePathInfo,
+    getOffsetRectForDom,
+} from '@univerjs/engine-render';
+import type { IDocRange } from './range-interface';
 import { isInSameTableCell, isInSameTableCellData, isValidRectRange } from './convert-rect-range';
 import { compareNodePosition } from './convert-text-range';
 import { convertPositionsToRectRanges, RectRange } from './rect-range';
@@ -138,6 +142,16 @@ export function getTextRangeFromCharIndex(
     const endNodePosition = skeleton.findNodePositionByCharIndex(endOffset, endIsBack, segmentId, segmentPage);
 
     if (startNodePosition == null || endNodePosition == null) {
+        const pages = skeleton.getSkeletonData()?.pages;
+        const startPage = pages?.[skeleton.findBodyPageIndexByCharIndex(startOffset)];
+        const endPage = pages?.[skeleton.findBodyPageIndexByCharIndex(endOffset)];
+        if (segmentId === '' && startOffset !== endOffset && startPage && endPage &&
+            (startPage.isMaterializationPlaceholder || endPage.isMaterializationPlaceholder)) {
+            return new TextRange(scene, document, skeleton, undefined, undefined, style, segmentId, segmentPage, {
+                startOffset: startIsBack ? startOffset : startOffset + 1,
+                endOffset: endIsBack ? endOffset : endOffset + 1,
+            });
+        }
         return;
     }
 
@@ -157,7 +171,9 @@ export function getRectRangeFromCharIndex(
     const startNodePosition = skeleton.findNodePositionByCharIndex(startOffset, true, segmentId, segmentPage);
     const endNodePosition = skeleton.findNodePositionByCharIndex(endOffset, true, segmentId, segmentPage);
 
-    if (startNodePosition == null || endNodePosition == null) {
+    // Hidden table offsets can resolve to their visible heading during layout.
+    if (startNodePosition == null || endNodePosition == null ||
+        startNodePosition.path.indexOf('cells') === -1 || endNodePosition.path.indexOf('cells') === -1) {
         return;
     }
 
@@ -178,6 +194,10 @@ export function getRangeListFromCharIndex(
     const endNodePosition = skeleton.findNodePositionByCharIndex(endOffset, true, segmentId, segmentPage);
 
     if (startNodePosition == null || endNodePosition == null) {
+        const textRange = getTextRangeFromCharIndex(startOffset, endOffset, scene, document, skeleton, style, segmentId, segmentPage);
+        if (textRange) {
+            return { textRanges: [textRange], rectRanges: [] };
+        }
         return;
     }
 

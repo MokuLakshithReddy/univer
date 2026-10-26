@@ -16,9 +16,23 @@
 
 import type { ICommandInfo } from '@univerjs/core';
 import type { IDrawingGroupUpdateParam } from '@univerjs/drawing';
-import { DrawingTypeEnum, UniverInstanceType } from '@univerjs/core';
-import { getDrawingShapeKeyByDrawingSearch, SetDrawingSelectedOperation } from '@univerjs/drawing';
-import { DRAWING_OBJECT_LAYER_INDEX, Rect } from '@univerjs/engine-render';
+import { BooleanNumber, DrawingTypeEnum, Univer, UniverInstanceType } from '@univerjs/core';
+import {
+    DrawingManagerService,
+    getDrawingShapeKeyByDrawingSearch,
+    IDrawingManagerService,
+    SetDrawingSelectedOperation,
+} from '@univerjs/drawing';
+import {
+    CanvasColorService,
+    DRAWING_OBJECT_LAYER_INDEX,
+    DrawingGroupObject,
+    Group,
+    ICanvasColorService,
+    IRenderManagerService,
+    Rect,
+    RenderManagerService,
+} from '@univerjs/engine-render';
 import { Subject } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 import { AlignType, SetDrawingAlignOperation } from '../../commands/operations/drawing-align.operation';
@@ -71,7 +85,7 @@ function createHarness() {
         clearControlByIds: vi.fn(),
     };
 
-    const zIndexShape = { setProps: vi.fn(), makeDirty: vi.fn() };
+    const zIndexShape = { zIndex: 5, makeDirty: vi.fn() };
     const disposeShape = { dispose: vi.fn() };
     const showHideShape = { show: vi.fn(), hide: vi.fn() };
     const transformShape = { layer: { zIndex: DRAWING_OBJECT_LAYER_INDEX }, transformByState: vi.fn(), setClipBounds: vi.fn(), show: vi.fn(), hide: vi.fn() };
@@ -203,6 +217,113 @@ function createHarness() {
 }
 
 describe('DrawingUpdateController', () => {
+    it('refreshes indexed header images without requesting another image load', () => {
+        const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext')
+            .mockReturnValue(new Proxy({}, { get: () => () => {} }) as CanvasRenderingContext2D);
+        const univer = new Univer();
+        try {
+            const injector = univer.__getInjector();
+            injector.add([ICanvasColorService, { useClass: CanvasColorService }]);
+            injector.add([IRenderManagerService, { useClass: RenderManagerService }]);
+            injector.add([IDrawingManagerService, { useClass: DrawingManagerService }]);
+            injector.add([DrawingUpdateController]);
+            const unitId = 'header-doc';
+            univer.createUnit(UniverInstanceType.UNIVER_DOC, { id: unitId, body: { dataStream: '\r\n' } });
+            const render = injector.get(IRenderManagerService).createRender(unitId);
+            render.deactivate();
+            const manager = injector.get(IDrawingManagerService);
+            injector.get(DrawingUpdateController);
+            const drawing = {
+                unitId,
+                subUnitId: unitId,
+                drawingId: 'logo',
+                drawingType: DrawingTypeEnum.DRAWING_IMAGE,
+                isMultiTransform: BooleanNumber.TRUE,
+                hidden: false,
+                transform: { left: 20, top: 30, width: 40, height: 30 },
+                transforms: [
+                    { left: 20, top: 30, width: 40, height: 30 },
+                    { left: 20, top: 530, width: 40, height: 30 },
+                ],
+            };
+            manager.setDrawingData(unitId, unitId, { logo: drawing });
+            const images = drawing.transforms.map((transform, index) => {
+                const image = new Rect(getDrawingShapeKeyByDrawingSearch(drawing, index), transform);
+                render.scene.addObject(image);
+                return image;
+            });
+            const add = vi.spyOn(manager, 'addNotification');
+
+            const update = { ...drawing, transforms: drawing.transforms.map((transform) => ({ ...transform, left: 50 })) };
+            manager.refreshTransform([update]);
+            expect(add).not.toHaveBeenCalled();
+            expect(images.map((image) => image.left)).toEqual([50, 50]);
+
+            manager.refreshTransform([{ ...update, hidden: true }]);
+            expect(images.every((image) => !image.visible)).toBe(true);
+            manager.refreshTransform([update]);
+            expect(images.every((image) => image.visible)).toBe(true);
+            expect(add).not.toHaveBeenCalled();
+
+            images[1].dispose();
+            manager.refreshTransform([update]);
+            expect(add).toHaveBeenCalledTimes(1);
+        } finally {
+            univer.dispose();
+            canvas.mockRestore();
+        }
+    });
+
+    it.each([{ GroupType: Group }, { GroupType: DrawingGroupObject }])('arranges $GroupType.name and repeated instances without interrupting other drawings', ({ GroupType }) => {
+        const getContextSpy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) {
+            return { canvas: this, setTransform: vi.fn(), clearRect: vi.fn() } as unknown as CanvasRenderingContext2D;
+        });
+        const univer = new Univer();
+        try {
+            const injector = univer.__getInjector();
+            injector.add([IDrawingManagerService, { useClass: DrawingManagerService }]);
+            injector.add([ICanvasColorService, { useClass: CanvasColorService }]);
+            injector.add([IRenderManagerService, { useClass: RenderManagerService }]);
+            injector.add([DrawingUpdateController]);
+
+            const unitId = 'arrange-unit';
+            const subUnitId = 'arrange-subunit';
+            const { scene } = injector.get(IRenderManagerService).createRender(unitId);
+            const drawingManagerService = injector.get(IDrawingManagerService);
+            injector.get(DrawingUpdateController);
+
+            const groupSearch = { unitId, subUnitId, drawingId: 'group' };
+            const child = new Rect('child', { zIndex: 7 });
+            const group = new GroupType(getDrawingShapeKeyByDrawingSearch(groupSearch), child);
+            const repeatedGroup = new GroupType(getDrawingShapeKeyByDrawingSearch(groupSearch, 0));
+            const shape = new Rect(getDrawingShapeKeyByDrawingSearch({ unitId, subUnitId, drawingId: 'shape' }));
+            scene.addObjects([group, repeatedGroup, shape], DRAWING_OBJECT_LAYER_INDEX);
+
+            for (const order of [['shape', 'group'], ['group', 'shape']]) {
+                group.makeDirty(false);
+                repeatedGroup.makeDirty(false);
+                shape.makeDirty(false);
+                drawingManagerService.setDrawingOrder(unitId, subUnitId, order);
+                drawingManagerService.orderUpdateNotification({ unitId, subUnitId, drawingIds: ['group', 'shape'] });
+
+                expect(group.zIndex).toBe(order.indexOf('group'));
+                expect(repeatedGroup.zIndex).toBe(group.zIndex);
+                expect(shape.zIndex).toBe(order.indexOf('shape'));
+                expect(group.isDirty()).toBe(true);
+                expect(repeatedGroup.isDirty()).toBe(true);
+                expect(shape.isDirty()).toBe(true);
+                expect(scene.getAllObjectsByOrder()).toEqual(
+                    order[0] === 'group' ? [group, repeatedGroup, shape] : [shape, group, repeatedGroup]
+                );
+                expect(group.getObjects()).toEqual([child]);
+                expect(child.zIndex).toBe(7);
+            }
+        } finally {
+            univer.dispose();
+            getContextSpy.mockRestore();
+        }
+    });
+
     it('syncs selection on transform start and persists transform changes on end', () => {
         const harness = createHarness();
 
@@ -244,7 +365,7 @@ describe('DrawingUpdateController', () => {
         const harness = createHarness();
 
         harness.order$.next({ unitId: 'unit-1', subUnitId: 'sheet-1', drawingIds: ['drawing-z'] });
-        expect(harness.zIndexShape.setProps).toHaveBeenCalledWith({ zIndex: 0 });
+        expect(harness.zIndexShape.zIndex).toBe(0);
         expect(harness.zIndexShape.makeDirty).toHaveBeenCalledTimes(1);
 
         const drawingId = 'drawing-transform';
@@ -500,4 +621,50 @@ describe('DrawingUpdateController', () => {
 
         harness.controller.dispose();
     });
+});
+
+describe('drawing removal with real render selection', () => {
+    it.each([DrawingTypeEnum.DRAWING_IMAGE, DrawingTypeEnum.DRAWING_SHAPE, DrawingTypeEnum.DRAWING_CHART]
+        .flatMap((drawingType) => [false, true].map((otherSelected) => ({ drawingType, otherSelected }))))(
+        'clears stale controls for type $drawingType with other selection=$otherSelected',
+        ({ drawingType, otherSelected }) => {
+            const context = new Proxy({}, { get: () => () => {} });
+            const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context as never);
+            const univer = new Univer();
+            const injector = univer.__getInjector();
+            injector.add([ICanvasColorService, { useClass: CanvasColorService }]);
+            injector.add([IRenderManagerService, { useClass: RenderManagerService }]);
+            injector.add([IDrawingManagerService, { useClass: DrawingManagerService }]);
+            injector.add([DrawingUpdateController]);
+            univer.createUnit(UniverInstanceType.UNIVER_DOC, { id: 'delete-doc', body: { dataStream: '\r\n' } });
+            const render = injector.get(IRenderManagerService).createRender('delete-doc');
+            render.deactivate();
+            injector.get(DrawingUpdateController);
+            const manager = injector.get(IDrawingManagerService);
+            const search = { unitId: 'delete-doc', subUnitId: 'delete-doc', drawingId: 'deleted', drawingType };
+            const key = getDrawingShapeKeyByDrawingSearch(search);
+            const objects = [key, `${key}#-#0`, ...(otherSelected ? ['unrelated'] : [])]
+                .map((id) => new Rect(id, { left: 10, top: 10, width: 40, height: 30 }));
+            const transformer = render.scene.getTransformerByCreate();
+            const cleared = vi.fn();
+            const subscription = transformer.clearControl$.subscribe(cleared);
+            try {
+                for (const object of objects) {
+                    render.scene.addObject(object);
+                    transformer.setSelectedControl(object);
+                }
+                render.scene.removeObjects(objects.slice(0, 2));
+                cleared.mockClear();
+                manager.removeNotification([search]);
+                expect([...transformer.getSelectedObjectMap().keys()]).toEqual(otherSelected ? ['unrelated'] : []);
+                expect(cleared).toHaveBeenCalledTimes(otherSelected ? 0 : 1);
+                expect(render.scene.getAllObjects().some((object) => object.oKey.includes(key))).toBe(false);
+            } finally {
+                subscription.unsubscribe();
+                objects.forEach((object) => object.dispose());
+                univer.dispose();
+                canvas.mockRestore();
+            }
+        }
+    );
 });

@@ -19,6 +19,7 @@ import type enUS from './en-US';
 const locale: typeof enUS = {
     'docs-ui': {
         pasteOptions: {
+            special: 'Inhalte einfügen',
             title: 'Einfügeoptionen',
             source: 'Ursprüngliche Formatierung beibehalten',
             destination: 'Zielformatierung übernehmen',
@@ -55,6 +56,8 @@ const locale: typeof enUS = {
             recovering: 'Dokumentlayout wird wiederhergestellt…',
         },
         toolbar: {
+            zoom: 'Zoom',
+            fullscreen: 'Vollbild',
             font: 'Schriftart',
             fontSize: 'Schriftgröße',
             bold: 'Fett',
@@ -117,6 +120,19 @@ const locale: typeof enUS = {
             deleteTable: 'Tabelle löschen',
         },
         headerFooter: {
+            navigation: 'Navigation',
+            options: 'Optionen',
+            position: 'Position',
+            refreshFields: 'Felder aktualisieren',
+            pageNumber: 'Seitenzahl',
+            currentPage: 'Aktuelle Seite',
+            totalPages: 'Gesamtseitenzahl',
+            dateTime: 'Datum und Uhrzeit',
+            updateAutomatically: 'Automatisch aktualisieren',
+            insertFailed: 'Das Dokument wurde geändert oder kann nicht bearbeitet werden. Schließen Sie den Dialog und versuchen Sie es erneut.',
+            goToHeader: 'Zur Kopfzeile',
+            goToFooter: 'Zur Fußzeile',
+
             linkToPrevious: 'Mit vorheriger verknüpfen',
             header: 'Kopfzeile',
             footer: 'Fußzeile',
@@ -227,6 +243,10 @@ const locale: typeof enUS = {
             decreaseIndent: 'Einzug verkleinern',
             defaultTextColor: 'Standardtextfarbe',
             noBackground: 'Kein Hintergrund',
+        },
+        heading: {
+            collapse: 'Einklappen',
+            expand: 'Ausklappen',
         },
         'page-settings': {
             'document-setting': 'Dokumenteneinstellung',

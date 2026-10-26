@@ -36,6 +36,7 @@ import {
     AddWorksheetMergeMutation,
     discreteRangeToRange,
     MergeCellController,
+    MoveRangeCommand,
     MoveRangeMutation,
     RefRangeService,
     RemoveWorksheetMergeMutation,
@@ -45,13 +46,15 @@ import {
     SetWorksheetColWidthMutation,
     SetWorksheetRowAutoHeightMutation,
     SetWorksheetRowHeightMutation,
+    SheetInterceptorService,
     SheetsSelectionsService,
     WorkbookEditablePermission,
 } from '@univerjs/sheets';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     SheetPermissionInterceptorClipboardController,
 } from '../../../controllers/permission/sheet-permission-interceptor-clipboard.controller';
+import { SheetSkeletonManagerService } from '../../sheet-skeleton-manager.service';
 import { ISheetClipboardService, PREDEFINED_HOOK_NAME_PASTE } from '../clipboard.service';
 import { COPY_TYPE } from '../type';
 import { clipboardTestBed } from './clipboard-test-bed';
@@ -241,6 +244,67 @@ describe('Test clipboard', () => {
         expect(await commandService.executeCommand(UndoCommand.id)).toBe(true);
         expect(getValues(0, 0, 0, 0)).toEqual(originalSource);
         expect(getValues(0, 1, 0, 1)).toEqual(originalPeer);
+    });
+
+    it('recalculates auto height when pasting into a row that already has a measured auto height', async () => {
+        const row = 30;
+        const worksheet = get(IUniverInstanceService)
+            .getUnit<Workbook>('test', UniverInstanceType.UNIVER_SHEET)!
+            .getSheetBySheetId('sheet1')!;
+        worksheet.getRowManager().getRowOrCreate(row).ah = 24;
+        const skeleton = get(SheetSkeletonManagerService).ensureSkeleton('sheet1')!;
+        vi.spyOn(skeleton, 'calculateAutoHeightInRange').mockReturnValue([{ row, autoHeight: 34 }]);
+        const copyId = 'existing-auto-height';
+        sheetClipboardService.copyContentCache().set(copyId, {
+            unitId: 'test',
+            subUnitId: 'sheet1',
+            range: { rows: [0], cols: [0] },
+            matrix: new ObjectMatrix({ 0: { 0: { v: 'line 1\nline 2' } } }),
+            copyType: COPY_TYPE.COPY,
+        });
+
+        expect(await sheetClipboardService.pasteByCopyId(copyId, PREDEFINED_HOOK_NAME_PASTE.DEFAULT_PASTE, {
+            unitId: 'test',
+            subUnitId: 'sheet1',
+            range: { startRow: row, endRow: row, startColumn: 0, endColumn: 0 },
+        })).toBe(true);
+        expect(worksheet.getRowManager().getRow(row)?.ah).toBe(34);
+        expect(await commandService.executeCommand(UndoCommand.id)).toBe(true);
+        expect(worksheet.getRowManager().getRow(row)?.ah).toBe(24);
+        expect(await commandService.executeCommand(RedoCommand.id)).toBe(true);
+        expect(worksheet.getRowManager().getRow(row)?.ah).toBe(34);
+    });
+
+    it.each([
+        { name: 'explicit', row: 31, isLegacy: false },
+        { name: 'legacy', row: 32, isLegacy: true },
+    ])('preserves a $name manually sized row when pasting', async ({ row, isLegacy }) => {
+        const worksheet = get(IUniverInstanceService)
+            .getUnit<Workbook>('test', UniverInstanceType.UNIVER_SHEET)!
+            .getSheetBySheetId('sheet1')!;
+        const rowData = worksheet.getRowManager().getRowOrCreate(row);
+        rowData.h = 40;
+        if (!isLegacy) {
+            rowData.ia = BooleanNumber.FALSE;
+        }
+        const skeleton = get(SheetSkeletonManagerService).ensureSkeleton('sheet1')!;
+        const calculateAutoHeight = vi.spyOn(skeleton, 'calculateAutoHeightInRange');
+        const copyId = 'manual-row-height';
+        sheetClipboardService.copyContentCache().set(copyId, {
+            unitId: 'test',
+            subUnitId: 'sheet1',
+            range: { rows: [0], cols: [0] },
+            matrix: new ObjectMatrix({ 0: { 0: { v: 'line 1\nline 2' } } }),
+            copyType: COPY_TYPE.COPY,
+        });
+
+        expect(await sheetClipboardService.pasteByCopyId(copyId, PREDEFINED_HOOK_NAME_PASTE.DEFAULT_PASTE, {
+            unitId: 'test',
+            subUnitId: 'sheet1',
+            range: { startRow: row, endRow: row, startColumn: 0, endColumn: 0 },
+        })).toBe(true);
+        expect(calculateAutoHeight).not.toHaveBeenCalled();
+        expect(worksheet.getRowHeight(row)).toBe(40);
     });
 
     it.each(['disposed', 'read-only'] as const)('does not redirect a delayed paste when its source becomes %s', async (state) => {
@@ -887,6 +951,65 @@ describe('Test clipboard', () => {
     });
 
     describe('Test cut command in single selection', () => {
+        it('checks range movement before resource hooks and keeps a rejected cut available for retry', async () => {
+            const workbook = get(IUniverInstanceService).getUnit<Workbook>('test')!;
+            const snapshot = Tools.deepClone(workbook.getSnapshot());
+            const history = get(IUndoRedoService).getUndoRedoStatus('test');
+            const matrix = new ObjectMatrix<ICellData>();
+            matrix.setValue(0, 0, { v: 'A25' });
+            const copyId = 'rejected-cut';
+            sheetClipboardService.copyContentCache().set(copyId, {
+                unitId: 'test',
+                subUnitId: 'sheet1',
+                range: { rows: [24], cols: [0] },
+                matrix,
+                copyType: COPY_TYPE.CUT,
+            });
+            let allowed = false;
+            const checks: unknown[] = [];
+            const validation = get(SheetInterceptorService).interceptBeforeCommand({
+                performCheck: async (command) => {
+                    checks.push(command);
+                    return allowed;
+                },
+            });
+            let hooksCalled = 0;
+            const hook = sheetClipboardService.addClipboardHook({
+                id: 'movement-preflight-resource',
+                onBeforePaste: () => {
+                    hooksCalled++;
+                    return true;
+                },
+            });
+            const target = {
+                unitId: 'test',
+                subUnitId: 'sheet1',
+                range: { startRow: 24, endRow: 24, startColumn: 1, endColumn: 1 },
+            };
+            expect(await sheetClipboardService.pasteByCopyId(copyId, undefined, target)).toBe(false);
+            expect(checks).toEqual([{
+                id: MoveRangeCommand.id,
+                params: {
+                    fromUnitId: 'test',
+                    fromSubUnitId: 'sheet1',
+                    fromRange: { startRow: 24, endRow: 24, startColumn: 0, endColumn: 0 },
+                    toUnitId: 'test',
+                    toSubUnitId: 'sheet1',
+                    toRange: target.range,
+                },
+            }]);
+            expect(hooksCalled).toBe(0);
+            expect(workbook.getSnapshot()).toEqual(snapshot);
+            expect(get(IUndoRedoService).getUndoRedoStatus('test')).toEqual(history);
+            expect(sheetClipboardService.copyContentCache().get(copyId)?.matrix).toBe(matrix);
+            allowed = true;
+            expect(await sheetClipboardService.pasteByCopyId(copyId, undefined, target)).toBe(true);
+            expect(getValues(24, 0, 24, 1)?.[0].map((cell) => cell?.v ?? null)).toEqual([null, 'A25']);
+            expect(hooksCalled).toBe(1);
+            validation.dispose();
+            hook.dispose();
+        });
+
         it('rejects cross-workbook cuts before running resource hooks and retains the cut for a valid retry', async () => {
             const instances = get(IUniverInstanceService);
             const source = instances.getUnit<Workbook>('test', UniverInstanceType.UNIVER_SHEET)!;
