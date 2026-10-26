@@ -26,7 +26,11 @@ import {
     IUniverInstanceService,
     toDisposable,
 } from '@univerjs/core';
-import { getDrawingShapeKeyByDrawingSearch, IDrawingManagerService, SetDrawingSelectedOperation } from '@univerjs/drawing';
+import {
+    getDrawingShapeKeyByDrawingSearch,
+    IDrawingManagerService,
+    SetDrawingSelectedOperation,
+} from '@univerjs/drawing';
 import { CURSOR_TYPE, IRenderManagerService } from '@univerjs/engine-render';
 import { bufferTime, filter, map } from 'rxjs';
 import { ImageResetSizeOperation } from '../commands/operations/image-reset-size.operation';
@@ -226,7 +230,7 @@ export class ImageUpdateController extends Disposable {
 
                     const { transform, drawingType, srcRect, prstGeom, source, imageSourceType } = drawingParam;
 
-                    if (drawingType !== DrawingTypeEnum.DRAWING_IMAGE) {
+                    if (drawingType !== DrawingTypeEnum.DRAWING_IMAGE && drawingType !== DrawingTypeEnum.DRAWING_OLE) {
                         return;
                     }
 
@@ -283,6 +287,9 @@ export class ImageUpdateController extends Disposable {
     }
 
     private _addDialogForImage(o: Image) {
+        if (this._drawingManagerService.getDrawingOKey(o.oKey)?.drawingType === DrawingTypeEnum.DRAWING_OLE) {
+            return;
+        }
         const preview = () => {
             const native = o.getNative();
             if (native) {
